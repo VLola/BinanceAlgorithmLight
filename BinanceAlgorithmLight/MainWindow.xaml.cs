@@ -744,6 +744,7 @@ namespace BinanceAlgorithmLight
                     NewLines(0);
                     LoadingChart();
                     LoadingChartOrders();
+                    ChartPointsOrders();
                     ReloadSettings();
                     plt.Plot.AxisAuto();
                     plt.Render();
