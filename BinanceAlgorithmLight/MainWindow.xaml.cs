@@ -60,7 +60,7 @@ namespace BinanceAlgorithmLight
             LOGIN_GRID.Visibility = Visibility.Visible;
             this.DataContext = this;
         }
-
+        #region - Symbol Info -
         private void ExchangeInfo()
         {
             string symbol = LIST_SYMBOLS.Text;
@@ -80,8 +80,8 @@ namespace BinanceAlgorithmLight
                 }
                 variables.USDT_MIN = variables.MIN_QTY * variables.PRICE_SYMBOL;
             }
-
         }
+        #endregion
 
         #region - Orders -
         List<double> long_open_order_x = new List<double>();
@@ -164,6 +164,16 @@ namespace BinanceAlgorithmLight
 
         #region - Algorithm -
 
+        private decimal RoundQuantity(decimal quantity)
+        {
+            decimal quantity_final = 0m;
+            if (variables.STEP_SIZE == 0.001m) quantity_final = Math.Round(quantity, 3);
+            else if (variables.STEP_SIZE == 0.01m) quantity_final = Math.Round(quantity, 2);
+            else if (variables.STEP_SIZE == 0.1m) quantity_final = Math.Round(quantity, 1);
+            else if (variables.STEP_SIZE == 1m) quantity_final = Math.Round(quantity, 0);
+            return quantity_final;
+        }
+
         #region - Open order, close order -
 
         public decimal open_quantity;
@@ -179,9 +189,9 @@ namespace BinanceAlgorithmLight
                 if (variables.START_BET && variables.PRICE_SYMBOL > 0m && variables.LINE_OPEN < 0 && open_order_id == 0 && variables.LONG)
                 {
 
-                    open_quantity = Math.Round(variables.USDT_BET * 2 / variables.PRICE_SYMBOL, 1);
+                    open_quantity = RoundQuantity(variables.USDT_BET * 2 / variables.PRICE_SYMBOL);
                     open_order_id = Algorithm.Algorithm.Order(socket, symbol, OrderSide.Sell, FuturesOrderType.Market, open_quantity, PositionSide.Short);
-                    opposite_open_quantity = Math.Round(open_quantity * 2, 1);
+                    opposite_open_quantity = RoundQuantity(open_quantity * 2);
                     opposite_open_order_id = Algorithm.Algorithm.Order(socket, symbol, OrderSide.Buy, FuturesOrderType.Market, opposite_open_quantity, PositionSide.Long);
                     if (open_order_id != 0 && opposite_open_order_id != 0)
                     {
@@ -193,9 +203,9 @@ namespace BinanceAlgorithmLight
                 }
                 else if (variables.START_BET && variables.PRICE_SYMBOL > 0m && variables.LINE_OPEN > 0 && open_order_id == 0 && variables.SHORT)
                 {
-                    open_quantity = Math.Round(variables.USDT_BET * 2 / variables.PRICE_SYMBOL, 1);
+                    open_quantity = RoundQuantity(variables.USDT_BET * 2 / variables.PRICE_SYMBOL);
                     open_order_id = Algorithm.Algorithm.Order(socket, symbol, OrderSide.Buy, FuturesOrderType.Market, open_quantity, PositionSide.Long);
-                    opposite_open_quantity = Math.Round(open_quantity * 2, 1);
+                    opposite_open_quantity = RoundQuantity(open_quantity * 2);
                     opposite_open_order_id = Algorithm.Algorithm.Order(socket, symbol, OrderSide.Sell, FuturesOrderType.Market, opposite_open_quantity, PositionSide.Short);
                     if (open_order_id != 0 && opposite_open_order_id != 0)
                     {
@@ -332,7 +342,7 @@ namespace BinanceAlgorithmLight
                     // Short
                     if (variables.SHORT && order_id_1 == 0 && list_ohlc[list_ohlc.Count - 1].Close > line_open_1_y[0])
                     {
-                        quantity_1 = Math.Round(open_quantity * 0.75m, 1);
+                        quantity_1 = RoundQuantity(open_quantity * 0.75m);
                         order_id_1 = Algorithm.Algorithm.Order(socket, symbol, OrderSide.Buy, FuturesOrderType.Market, quantity_1, PositionSide.Long);
                         SoundOpenOrder();
                         price_order_1 = Algorithm.Algorithm.InfoOrderId(socket, symbol, order_id_1);
@@ -342,7 +352,7 @@ namespace BinanceAlgorithmLight
                     }
                     if (variables.SHORT && order_id_2 == 0 && list_ohlc[list_ohlc.Count - 1].Close > line_open_2_y[0])
                     {
-                        quantity_2 = Math.Round(open_quantity * 0.6m, 1);
+                        quantity_2 = RoundQuantity(open_quantity * 0.6m);
                         order_id_2 = Algorithm.Algorithm.Order(socket, symbol, OrderSide.Buy, FuturesOrderType.Market, quantity_2, PositionSide.Long);
                         SoundOpenOrder();
                         price_order_2 = Algorithm.Algorithm.InfoOrderId(socket, symbol, order_id_2);
@@ -352,7 +362,7 @@ namespace BinanceAlgorithmLight
                     }
                     if (variables.SHORT && order_id_3 == 0 && list_ohlc[list_ohlc.Count - 1].Close > line_open_3_y[0])
                     {
-                        quantity_3 = Math.Round(open_quantity * 0.5m, 1);
+                        quantity_3 = RoundQuantity(open_quantity * 0.5m);
                         order_id_3 = Algorithm.Algorithm.Order(socket, symbol, OrderSide.Buy, FuturesOrderType.Market, quantity_3, PositionSide.Long);
                         SoundOpenOrder();
                         price_order_3 = Algorithm.Algorithm.InfoOrderId(socket, symbol, order_id_3);
@@ -406,7 +416,7 @@ namespace BinanceAlgorithmLight
                     // Long
                     if (variables.LONG && order_id_1 == 0 && list_ohlc[list_ohlc.Count - 1].Close < line_open_1_y[0])
                     {
-                        quantity_1 = Math.Round(open_quantity * 0.75m, 1);
+                        quantity_1 = RoundQuantity(open_quantity * 0.75m);
                         order_id_1 = Algorithm.Algorithm.Order(socket, symbol, OrderSide.Sell, FuturesOrderType.Market, quantity_1, PositionSide.Short);
                         SoundOpenOrder();
                         price_order_1 = Algorithm.Algorithm.InfoOrderId(socket, symbol, order_id_1);
@@ -416,7 +426,7 @@ namespace BinanceAlgorithmLight
                     }
                     if (variables.LONG && order_id_2 == 0 && list_ohlc[list_ohlc.Count - 1].Close < line_open_2_y[0])
                     {
-                        quantity_2 = Math.Round(open_quantity * 0.6m, 1);
+                        quantity_2 = RoundQuantity(open_quantity * 0.6m);
                         order_id_2 = Algorithm.Algorithm.Order(socket, symbol, OrderSide.Sell, FuturesOrderType.Market, quantity_2, PositionSide.Short);
                         SoundOpenOrder();
                         price_order_2 = Algorithm.Algorithm.InfoOrderId(socket, symbol, order_id_2);
@@ -426,7 +436,7 @@ namespace BinanceAlgorithmLight
                     }
                     if (variables.LONG && order_id_3 == 0 && list_ohlc[list_ohlc.Count - 1].Close < line_open_3_y[0])
                     {
-                        quantity_3 = Math.Round(open_quantity * 0.5m, 1);
+                        quantity_3 = RoundQuantity(open_quantity * 0.5m);
                         order_id_3 = Algorithm.Algorithm.Order(socket, symbol, OrderSide.Sell, FuturesOrderType.Market, quantity_3, PositionSide.Short);
                         SoundOpenOrder();
                         price_order_3 = Algorithm.Algorithm.InfoOrderId(socket, symbol, order_id_3);
@@ -840,6 +850,7 @@ namespace BinanceAlgorithmLight
                         list_ohlc.Add(new OHLC(Decimal.ToDouble(it.OpenPrice), Decimal.ToDouble(it.HighPrice), Decimal.ToDouble(it.LowPrice), Decimal.ToDouble(it.ClosePrice), it.OpenTime, timeSpan));
                     }
                     variables.PRICE_SYMBOL = result.Data.ToList()[result.Data.ToList().Count - 1].ClosePrice;
+                    
                     ExchangeInfo();
                 }
             }
