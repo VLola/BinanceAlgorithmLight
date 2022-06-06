@@ -157,6 +157,16 @@ namespace BinanceAlgorithmLight.Model
                 OnPropertyChanged("LINE_OPEN");
             }
         }
+        private decimal _AVERAGE_CANDLE;
+        public decimal AVERAGE_CANDLE
+        {
+            get { return _AVERAGE_CANDLE; }
+            set
+            {
+                _AVERAGE_CANDLE = value;
+                OnPropertyChanged("AVERAGE_CANDLE");
+            }
+        }
         public event PropertyChangedEventHandler PropertyChanged;
         public void OnPropertyChanged([CallerMemberName] string prop = "")
         {

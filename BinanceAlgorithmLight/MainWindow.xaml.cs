@@ -28,7 +28,7 @@ namespace BinanceAlgorithmLight
         public string SECRET_KEY { get; set; } = "";
         public string CLIENT_NAME { get; set; } = "";
         public double LINE_SL { get; set; } = 0.43;
-        public int LINE_TP { get; set; } = 10;
+        public int LINE_TP { get; set; } = 100;
         public int COUNT_CANDLES { get; set; } = 100;
         public Socket socket;
         public List<string> list_sumbols_name = new List<string>();
@@ -60,6 +60,7 @@ namespace BinanceAlgorithmLight
             LOGIN_GRID.Visibility = Visibility.Visible;
             this.DataContext = this;
         }
+
         #region - Symbol Info -
         private void ExchangeInfo()
         {
@@ -321,6 +322,7 @@ namespace BinanceAlgorithmLight
             quantity_2 = 0m;
             quantity_3 = 0m;
             start = false;
+            variables.START_BET = false;
         }
         public decimal quantity_1 = 0m;
         public decimal quantity_2 = 0m;
@@ -611,14 +613,14 @@ namespace BinanceAlgorithmLight
                     }
                     else
                     {
-                        line_tp_1_y[0] = price + (price_percent * LINE_TP);
-                        line_tp_2_y[0] = price + (price_percent * -LINE_TP);
+                        line_tp_1_y[0] = price + (price / 1000 * LINE_TP);
+                        line_tp_2_y[0] = price + (price / 1000 * -LINE_TP);
                     }
                     line_tp_1_y[1] = line_tp_1_y[0];
                     line_tp_2_y[1] = line_tp_2_y[0];
-                    line_tp_1_scatter = plt.Plot.AddScatterLines(line_x, line_tp_1_y, Color.Orange, lineStyle: LineStyle.Dash, label: line_tp_1_y[0] + " - 1 take profit price");
+                    line_tp_1_scatter = plt.Plot.AddScatterLines(line_x, line_tp_1_y, Color.Orange, lineStyle: LineStyle.Dash, label: $"{line_tp_1_y[0]} ({Convert.ToDouble(LINE_TP) / 10} %) - 1 take profit price");
                     line_tp_1_scatter.YAxisIndex = 1;
-                    line_tp_2_scatter = plt.Plot.AddScatterLines(line_x, line_tp_2_y, Color.Orange, lineStyle: LineStyle.Dash, label: line_tp_2_y[0] + " - 2 take profit price");
+                    line_tp_2_scatter = plt.Plot.AddScatterLines(line_x, line_tp_2_y, Color.Orange, lineStyle: LineStyle.Dash, label: $"{line_tp_2_y[0]} (-{Convert.ToDouble(LINE_TP) / 10} %) - 2 take profit price");
                     line_tp_2_scatter.YAxisIndex = 1;
                 }
             }
@@ -661,11 +663,13 @@ namespace BinanceAlgorithmLight
         #region - Chart Line Open Order  -
         private void LINE_OPEN_TextChanged(object sender, TextChangedEventArgs e)
         {
-            NewLines(0);
+            NewLinesOpenOrders();
+            plt.Refresh();
         }
         private void NewLines(double price_order)
         {
             NewLineOpen(price_order);
+            NewLinesOpenOrders();
             NewLineTP();
             plt.Refresh();
         }
@@ -682,37 +686,17 @@ namespace BinanceAlgorithmLight
             {
                 if (variables.LINE_OPEN != 0 && list_ohlc.Count > 0)
                 {
-
                     Array.Clear(line_x, 0, 2);
                     Array.Clear(line_open_y, 0, 2);
-                    Array.Clear(line_open_1_y, 0, 2);
-                    Array.Clear(line_open_2_y, 0, 2);
-                    Array.Clear(line_open_3_y, 0, 2);
                     plt.Plot.Remove(line_open_scatter);
-                    plt.Plot.Remove(line_open_1_scatter);
-                    plt.Plot.Remove(line_open_2_scatter);
-                    plt.Plot.Remove(line_open_3_scatter);
                     if (price_order == 0) price = list_ohlc[list_ohlc.Count - 1].Close;
                     else price = price_order;
-                    price_percent = price / 1000 * variables.LINE_OPEN;
                     line_x[0] = list_ohlc[0].DateTime.ToOADate();
                     line_x[1] = list_ohlc[list_ohlc.Count - 1].DateTime.ToOADate();
                     line_open_y[0] = price;
                     line_open_y[1] = price;
-                    line_open_1_y[0] = price + price_percent;
-                    line_open_1_y[1] = line_open_1_y[0];
-                    line_open_2_y[0] = price + price_percent + price_percent;
-                    line_open_2_y[1] = line_open_2_y[0];
-                    line_open_3_y[0] = price + price_percent + price_percent + price_percent;
-                    line_open_3_y[1] = line_open_3_y[0];
                     line_open_scatter = plt.Plot.AddScatterLines(line_x, line_open_y, Color.White, lineStyle: LineStyle.Dash, label: price + " - open order price");
                     line_open_scatter.YAxisIndex = 1;
-                    line_open_1_scatter = plt.Plot.AddScatterLines(line_x, line_open_1_y, Color.LightGreen, lineStyle: LineStyle.Dash, label: line_open_1_y[0] + " - 1 open order price");
-                    line_open_1_scatter.YAxisIndex = 1;
-                    line_open_2_scatter = plt.Plot.AddScatterLines(line_x, line_open_2_y, Color.LightGreen, lineStyle: LineStyle.Dash, label: line_open_2_y[0] + " - 2 open order price");
-                    line_open_2_scatter.YAxisIndex = 1;
-                    line_open_3_scatter = plt.Plot.AddScatterLines(line_x, line_open_3_y, Color.LightGreen, lineStyle: LineStyle.Dash, label: line_open_3_y[0] + " - 3 open order price");
-                    line_open_3_scatter.YAxisIndex = 1;
                 }
             }
             catch (Exception c)
@@ -723,6 +707,39 @@ namespace BinanceAlgorithmLight
         private void LoadLineOpen()
         {
             line_x[1] = list_ohlc[list_ohlc.Count - 1].DateTime.ToOADate();
+        }
+
+        private void NewLinesOpenOrders()
+        {
+            try
+            {
+                if (variables.LINE_OPEN != 0 && list_ohlc.Count > 0)
+                {
+                    Array.Clear(line_open_1_y, 0, 2);
+                    Array.Clear(line_open_2_y, 0, 2);
+                    Array.Clear(line_open_3_y, 0, 2);
+                    plt.Plot.Remove(line_open_1_scatter);
+                    plt.Plot.Remove(line_open_2_scatter);
+                    plt.Plot.Remove(line_open_3_scatter);
+                    price_percent = price / 1000 * variables.LINE_OPEN;
+                    line_open_1_y[0] = price + price_percent;
+                    line_open_1_y[1] = line_open_1_y[0];
+                    line_open_2_y[0] = price + price_percent + price_percent;
+                    line_open_2_y[1] = line_open_2_y[0];
+                    line_open_3_y[0] = price + price_percent + price_percent + price_percent;
+                    line_open_3_y[1] = line_open_3_y[0];
+                    line_open_1_scatter = plt.Plot.AddScatterLines(line_x, line_open_1_y, Color.LightGreen, lineStyle: LineStyle.Dash, label: $"{line_open_1_y[0]} ({Convert.ToDouble(variables.LINE_OPEN) / 10} %) - 1 open order price");
+                    line_open_1_scatter.YAxisIndex = 1;
+                    line_open_2_scatter = plt.Plot.AddScatterLines(line_x, line_open_2_y, Color.LightGreen, lineStyle: LineStyle.Dash, label: $"{line_open_2_y[0]} ({Convert.ToDouble(variables.LINE_OPEN) * 2 / 10} %) - 2 open order price");
+                    line_open_2_scatter.YAxisIndex = 1;
+                    line_open_3_scatter = plt.Plot.AddScatterLines(line_x, line_open_3_y, Color.LightGreen, lineStyle: LineStyle.Dash, label: $"{line_open_3_y[0]} ({Convert.ToDouble(variables.LINE_OPEN) * 3 / 10} %) - 3 open order price");
+                    line_open_3_scatter.YAxisIndex = 1;
+                }
+            }
+            catch (Exception c)
+            {
+                ErrorText.Add($"NewLinesOpenOrders {c.Message}");
+            }
         }
         #endregion
 
@@ -837,7 +854,7 @@ namespace BinanceAlgorithmLight
         #endregion
 
         #region - Candles Save -
-        public void Klines(string Symbol, DateTime? start_time = null, DateTime? end_time = null, int? klines_count = null)
+        public void Klines(string Symbol, int klines_count, DateTime? start_time = null, DateTime? end_time = null)
         {
             try
             {
@@ -845,13 +862,17 @@ namespace BinanceAlgorithmLight
                 if (!result.Success) ErrorText.Add("Error GetKlinesAsync");
                 else
                 {
+                    decimal sum_low_high_price = 0m;
                     if (list_ohlc.Count > 0) list_ohlc.Clear();
                     foreach (var it in result.Data.ToList())
                     {
+                        sum_low_high_price += (it.HighPrice - it.LowPrice);
                         list_ohlc.Add(new OHLC(Decimal.ToDouble(it.OpenPrice), Decimal.ToDouble(it.HighPrice), Decimal.ToDouble(it.LowPrice), Decimal.ToDouble(it.ClosePrice), it.OpenTime, timeSpan));
                     }
                     variables.PRICE_SYMBOL = result.Data.ToList()[result.Data.ToList().Count - 1].ClosePrice;
-                    
+                    variables.AVERAGE_CANDLE = Math.Round((sum_low_high_price / klines_count) / (variables.PRICE_SYMBOL / 1000));
+
+
                     ExchangeInfo();
                 }
             }
