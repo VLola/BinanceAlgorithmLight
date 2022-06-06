@@ -1,0 +1,278 @@
+﻿<Window x:Class="BinanceAlgorithmLight.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:BinanceAlgorithmLight"
+        mc:Ignorable="d"
+        Title="MainWindow" Height="800" Width="1200">
+    <Window.Resources>
+        <Style x:Key="styleStackPanel" TargetType="StackPanel">
+            <Setter Property="Background" Value="Black" />
+            <Setter Property="VerticalAlignment" Value="Stretch" />
+            <Setter Property="Margin" Value="1" />
+        </Style>
+        <Style x:Key="styleDockPanel" TargetType="DockPanel">
+            <Setter Property="Background" Value="Black" />
+            <Setter Property="Margin" Value="1" />
+        </Style>
+        <Style x:Key="styleCheckBox" TargetType="CheckBox">
+            <Setter Property="Foreground" Value="White" />
+            <Setter Property="HorizontalAlignment" Value="Center" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+        <Style x:Key="styleGridMain" TargetType="Grid">
+            <Setter Property="Background" Value="Black" />
+        </Style>
+        <Style x:Key="styleGrid" TargetType="Grid">
+            <Setter Property="Background" Value="Black" />
+            <Setter Property="Margin" Value="1" />
+        </Style>
+        <Style x:Key="styleGridBlack" TargetType="Grid">
+            <Setter Property="Background" Value="#FF1F1F1F" />
+            <Setter Property="Margin" Value="1" />
+        </Style>
+        <Style x:Key="styleRadioButton" TargetType="RadioButton">
+            <Setter Property="Foreground" Value="White" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="HorizontalAlignment" Value="Center" />
+        </Style>
+        <Style x:Key="styleTextBlock" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="White" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="HorizontalAlignment" Value="Center" />
+        </Style>
+        <Style x:Key="styleLabelLeft" TargetType="Label">
+            <Setter Property="Foreground" Value="White" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="HorizontalAlignment" Value="Left" />
+        </Style>
+        <Style x:Key="styleLabel" TargetType="Label">
+            <Setter Property="Margin" Value="5 0" />
+            <Setter Property="Foreground" Value="White" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="HorizontalAlignment" Value="Center" />
+        </Style>
+        <Style x:Key="styleTextBoxErrors" TargetType="TextBox">
+            <Setter Property="Foreground" Value="Gray" />
+            <Setter Property="Background" Value="Black" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="AcceptsReturn" Value="True" />
+            <Setter Property="VerticalScrollBarVisibility" Value="Visible" />
+        </Style>
+        <Style x:Key="styleTextBoxLogin" TargetType="TextBox">
+            <Setter Property="Margin" Value="5 0" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="HorizontalAlignment" Value="Stretch" />
+            <Setter Property="Foreground" Value="Gray" />
+            <Setter Property="Background" Value="Black" />
+        </Style>
+        <Style x:Key="styleTextBox" TargetType="TextBox">
+            <Setter Property="Margin" Value="5 0" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="HorizontalAlignment" Value="Stretch" />
+            <Setter Property="Foreground" Value="Gray" />
+            <Setter Property="Background" Value="Black" />
+        </Style>
+        <Style x:Key="styleTextBoxUsdt" TargetType="TextBox">
+            <Setter Property="Margin" Value="5 0" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="HorizontalAlignment" Value="Stretch" />
+            <Setter Property="Foreground" Value="Gray" />
+            <Setter Property="Background" Value="Black" />
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding Path=variables.USDT_CHECK}" Value="False">
+                    <Setter Property="Foreground" Value="Red" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+        <Style x:Key="styleButtonLeftBottom" TargetType="Button">
+            <Setter Property="VerticalAlignment" Value="Stretch" />
+            <Setter Property="HorizontalAlignment" Value="Stretch" />
+            <Setter Property="Margin" Value="2" />
+            <Setter Property="Background" Value="Gray" />
+            <Setter Property="Foreground" Value="White" />
+        </Style>
+        <Style x:Key="styleButton" TargetType="Button">
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="HorizontalAlignment" Value="Stretch" />
+            <Setter Property="Margin" Value="10 0" />
+            <Setter Property="Background" Value="Gray" />
+            <Setter Property="Foreground" Value="White" />
+        </Style>
+        <Style x:Key="styleComboBox" TargetType="ComboBox">
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="HorizontalAlignment" Value="Center" />
+            <Setter Property="Padding" Value="10 0" />
+            <Setter Property="Foreground" Value="Black" />
+        </Style>
+    </Window.Resources>
+    <Grid Style="{DynamicResource styleGridMain}">
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="100*"/>
+            <ColumnDefinition Width="30*"/>
+        </Grid.ColumnDefinitions>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="30*"/>
+            <RowDefinition Height="100*"/>
+        </Grid.RowDefinitions>
+        <Grid>
+            <Grid Grid.Column="0" Grid.Row="0">
+                <Grid Visibility="Hidden" x:Name="LOGIN_GRID" Style="{DynamicResource styleGrid}">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition/>
+                        <ColumnDefinition/>
+                        <ColumnDefinition/>
+                        <ColumnDefinition/>
+                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="30*"></RowDefinition>
+                        <RowDefinition Height="30*"></RowDefinition>
+                        <RowDefinition Height="30*"></RowDefinition>
+                    </Grid.RowDefinitions>
+                    <Grid Grid.Column="0" Grid.Row="0" Style="{DynamicResource styleGridBlack}">
+                        <Label Content="ApiKey:" Style="{DynamicResource styleLabel}"/>
+                    </Grid>
+                    <Grid Grid.Column="1" Grid.Row="0" Style="{DynamicResource styleGridBlack}">
+                        <TextBox Text="{Binding Path=API_KEY, UpdateSourceTrigger=PropertyChanged}" Style="{DynamicResource styleTextBoxLogin}"/>
+                    </Grid>
+                    <Grid Grid.Column="2" Grid.Row="0" Style="{DynamicResource styleGridBlack}">
+                        <Label Content="SecretKey:" Style="{DynamicResource styleLabel}"/>
+                    </Grid>
+                    <Grid Grid.Column="3" Grid.Row="0" Style="{DynamicResource styleGridBlack}">
+                        <TextBox Text="{Binding Path=SECRET_KEY, UpdateSourceTrigger=PropertyChanged}" Style="{DynamicResource styleTextBoxLogin}"/>
+                    </Grid>
+                    <Grid Grid.Column="0" Grid.Row="1" Style="{DynamicResource styleGridBlack}">
+                        <Label Content="Name:" Style="{DynamicResource styleLabel}"/>
+                    </Grid>
+                    <Grid Grid.Column="1" Grid.Row="1" Style="{DynamicResource styleGridBlack}">
+                        <TextBox Text="{Binding Path=CLIENT_NAME, UpdateSourceTrigger=PropertyChanged}" Style="{DynamicResource styleTextBoxLogin}"/>
+                    </Grid>
+                    <Grid Grid.Column="2" Grid.Row="1" Grid.ColumnSpan="2" Style="{DynamicResource styleGridBlack}">
+                        <ComboBox x:Name="BOX_NAME" Style="{DynamicResource styleComboBox}"/>
+                    </Grid>
+                    <Grid Grid.Column="0" Grid.Row="2" Grid.ColumnSpan="2" Style="{DynamicResource styleGridBlack}">
+                        <Button Content="Save" Click="Button_Save" Style="{DynamicResource styleButton}"/>
+                    </Grid>
+                    <Grid Grid.Column="2" Grid.Row="2" Grid.ColumnSpan="2" Style="{DynamicResource styleGridBlack}">
+                        <Button Content="Login" Click="Button_Login" Style="{DynamicResource styleButton}"/>
+                    </Grid>
+                </Grid>
+                <Grid Visibility="Visible" x:Name="EXIT_GRID" Style="{DynamicResource styleGrid}">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition/>
+                        <ColumnDefinition/>
+                        <ColumnDefinition/>
+                        <ColumnDefinition/>
+                        <ColumnDefinition/>
+                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition/>
+                        <RowDefinition/>
+                        <RowDefinition/>
+                    </Grid.RowDefinitions>
+                    <Grid Grid.Column="0" Grid.Row="0" Style="{DynamicResource styleGridBlack}">
+                        <ComboBox x:Name="LIST_SYMBOLS" DropDownClosed="LIST_SYMBOLS_DropDownClosed" Style="{DynamicResource styleComboBox}"/>
+                    </Grid>
+                    <Grid Grid.Column="1" Grid.Row="0" Style="{DynamicResource styleGridBlack}">
+                        <ComboBox x:Name="INTERVAL_TIME" ItemsSource="{Binding Path=Intervals}" DropDownClosed="INTERVAL_TIME_DropDownClosed" Style="{DynamicResource styleComboBox}"/>
+                    </Grid>
+                    
+                    <Grid Grid.Column="2" Grid.Row="0" Style="{DynamicResource styleGridBlack}">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition/>
+                            <ColumnDefinition/>
+                        </Grid.ColumnDefinitions>
+                        <RadioButton Grid.Column="0" Content="Long" IsChecked="{Binding Path=variables.LONG}" Style="{DynamicResource styleRadioButton}"/>
+                        <RadioButton Grid.Column="1" Content="Short" IsChecked="{Binding Path=variables.SHORT}" Style="{DynamicResource styleRadioButton}"/>
+                    </Grid>
+
+                    <Grid Grid.Column="3" Grid.Row="0" Style="{DynamicResource styleGridBlack}">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition/>
+                            <ColumnDefinition/>
+                        </Grid.ColumnDefinitions>
+                        <Label Grid.Column="0" Content="Candles:" Style="{DynamicResource styleLabel}"/>
+                        <TextBox Grid.Column="1" Text="{Binding Path=COUNT_CANDLES, UpdateSourceTrigger=PropertyChanged}" TextChanged="COUNT_CANDLES_TextChanged" Style="{DynamicResource styleTextBox}"/>
+                    </Grid>
+                    <Grid Grid.Column="4" Grid.Row="0" Style="{DynamicResource styleGridBlack}">
+                        <Button Content="Exit" Click="Exit_Click" Style="{DynamicResource styleButton}"/>
+                    </Grid>
+                    <Grid Grid.Column="0" Grid.Row="1" Style="{DynamicResource styleGridBlack}">
+                        <CheckBox Content="Online" IsChecked="{Binding Path=variables.ONLINE_CHART}" Style="{DynamicResource styleCheckBox}"/>
+                    </Grid>
+                    <Grid Grid.Column="1" Grid.Row="1" Style="{DynamicResource styleGridBlack}">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition/>
+                            <ColumnDefinition/>
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition/>
+                            <RowDefinition/>
+                        </Grid.RowDefinitions>
+                        <Label Grid.Column="0" Grid.Row="0" Content="Line:" Style="{DynamicResource styleLabel}"/>
+                        <Label Grid.Column="1" Grid.Row="0" Content="TP:" Style="{DynamicResource styleLabel}"/>
+                        <TextBox x:Name="LINE_OPEN_TEXT" Grid.Column="0" Grid.Row="1" Text="{Binding Path=variables.LINE_OPEN, UpdateSourceTrigger=PropertyChanged}" TextChanged="LINE_OPEN_TextChanged" Style="{DynamicResource styleTextBox}"/>
+                        <TextBox Grid.Column="1" Grid.Row="1" Text="{Binding Path=LINE_TP, UpdateSourceTrigger=PropertyChanged}" TextChanged="LINE_TP_TextChanged" Style="{DynamicResource styleTextBox}"/>
+                    </Grid>
+                    <Grid Grid.Column="2" Grid.Row="1" Style="{DynamicResource styleGridBlack}">
+                        <Button Content="Bet" Click="Bet_Click" Style="{DynamicResource styleButton}"/>
+                    </Grid>
+                    <Grid Grid.Column="3" Grid.Row="1" Style="{DynamicResource styleGridBlack}">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition/>
+                            <ColumnDefinition/>
+                        </Grid.ColumnDefinitions>
+                        <Label Grid.Column="0" Content="MIN_QTY:" Style="{DynamicResource styleLabel}"/>
+                        <TextBlock Grid.Column="1" Text="{Binding Path=variables.MIN_QTY}" Style="{DynamicResource styleTextBlock}"/>
+                    </Grid>
+                    <Grid Grid.Column="4" Grid.Row="1" Style="{DynamicResource styleGridBlack}">
+                        <Button Content="Disconnect" Click="STOP_ASYNC_Click" Style="{DynamicResource styleButton}"/>
+                    </Grid>
+                    <Grid Grid.Column="0" Grid.Row="2" Style="{DynamicResource styleGridBlack}">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition/>
+                            <ColumnDefinition/>
+                        </Grid.ColumnDefinitions>
+                        <CheckBox Grid.Column="0" Content="Start bet" IsChecked="{Binding Path=variables.START_BET}" Style="{DynamicResource styleCheckBox}"/>
+                        <CheckBox Grid.Column="1" Content="Sound" IsChecked="{Binding Path=variables.SOUND}" Style="{DynamicResource styleCheckBox}"/>
+                    </Grid>
+                    <Grid Grid.Column="1" Grid.Row="2" Style="{DynamicResource styleGridBlack}">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition/>
+                            <ColumnDefinition/>
+                        </Grid.ColumnDefinitions>
+                        <Label Grid.Column="0" Content="USDT:" Style="{DynamicResource styleLabel}"/>
+                        <TextBox Grid.Column="1" Text="{Binding Path=variables.USDT_BET, UpdateSourceTrigger=PropertyChanged}" ToolTip="{Binding Path=variables.USDT_MIN_TOOL_TIP}" Style="{DynamicResource styleTextBoxUsdt}"/>
+                    </Grid>
+                    <Grid Grid.Column="2" Grid.Row="2" Style="{DynamicResource styleGridBlack}">
+                        <Button Content="Close orders" Click="CloseOrders_Click" Style="{DynamicResource styleButton}"/>
+                    </Grid>
+                    <Grid Grid.Column="3" Grid.Row="2" Style="{DynamicResource styleGridBlack}">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition/>
+                            <ColumnDefinition/>
+                        </Grid.ColumnDefinitions>
+                        <Label Grid.Column="0" Content="USDT_MIN:" Style="{DynamicResource styleLabel}"/>
+                        <TextBlock Grid.Column="1" Text="{Binding Path=variables.USDT_MIN}" Style="{DynamicResource styleTextBlock}"/>
+                    </Grid>
+                    <Grid Grid.Column="4" Grid.Row="2" Style="{DynamicResource styleGridBlack}">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition/>
+                            <ColumnDefinition/>
+                        </Grid.ColumnDefinitions>
+                        <Label Grid.Column="0" Content="PRICE:" Style="{DynamicResource styleLabel}"/>
+                        <TextBlock Grid.Column="1" Text="{Binding Path=variables.PRICE_SYMBOL}" Style="{DynamicResource styleTextBlock}"/>
+                    </Grid>
+                </Grid>
+            </Grid>
+        </Grid>
+        <DockPanel Grid.Column="1" Grid.Row="0" Style="{DynamicResource styleDockPanel}">
+            <Button Content="Clear" Click="Button_ClearErrors" Style="{DynamicResource styleButtonLeftBottom}"/>
+            <TextBox x:Name="ERROR_LOG" Style="{DynamicResource styleTextBoxErrors}"/>
+        </DockPanel>
+        <Grid Grid.Column="0" Grid.Row="1" Grid.ColumnSpan="2" Style="{DynamicResource styleGrid}">
+            <WpfPlot Name="plt"/>
+        </Grid>
+    </Grid>
+</Window>
