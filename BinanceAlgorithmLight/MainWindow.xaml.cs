@@ -62,8 +62,9 @@ namespace BinanceAlgorithmLight
             LOGIN_GRID.Visibility = Visibility.Visible;
             this.DataContext = this;
         }
-        
-        private void StartOrderAsync(string symbol)
+
+        #region - Subscribe To Order -
+        private void SubscribeToOrder(string symbol)
         {
             var listenKey = socket.futures.Account.StartUserStreamAsync().Result;
             if (!listenKey.Success) ErrorText.Add($"Failed to start user stream: {listenKey.Error.Message}");
@@ -78,6 +79,7 @@ namespace BinanceAlgorithmLight
                         {
                             list_orders.Add(onOrderUpdate.Data.UpdateData);
                             LoadingChartOrders();
+                            variables.PNL = CalculatePnl(variables.PRICE_SYMBOL);
                         }));
                     }
                 },
@@ -85,6 +87,7 @@ namespace BinanceAlgorithmLight
                 ).Result;
             if (!result.Success) ErrorText.Add($"Failed UserDataUpdates: {result.Error.Message}");
         }
+        #endregion
 
         #region - Symbol Info -
         private void ExchangeInfo()
@@ -210,6 +213,7 @@ namespace BinanceAlgorithmLight
         {
             try
             {
+                list_orders.Clear();
                 string symbol = LIST_SYMBOLS.Text;
                 if (variables.START_BET && variables.PRICE_SYMBOL > 0m && variables.LINE_OPEN < 0 && open_order_id == 0 && variables.LONG)
                 {
@@ -325,7 +329,8 @@ namespace BinanceAlgorithmLight
                     SoundCloseOrder();
                 }
                 NewLineSLClear();
-                start = false;
+                variables.PNL = CalculatePnl(variables.PRICE_SYMBOL);
+                ReloadSettings();
             }
             catch (Exception c)
             {
@@ -345,8 +350,6 @@ namespace BinanceAlgorithmLight
             quantity_1 = 0m;
             quantity_2 = 0m;
             quantity_3 = 0m;
-            variables.PNL = 0m;
-            list_orders.Clear();
             start = false;
             variables.START_BET = false;
         }
@@ -523,8 +526,9 @@ namespace BinanceAlgorithmLight
                         quantity_3 = 0m;
                         order_id_3 = 0;
                         SoundCloseOrder();
-                        start = false;
                         NewLineSLClear();
+                        variables.PNL = CalculatePnl(variables.PRICE_SYMBOL);
+                        ReloadSettings();
                     }
                     if (variables.SHORT && open_order_id != 0 && opposite_open_order_id != 0 && list_ohlc[list_ohlc.Count - 1].Close < line_tp_2_y[0])
                     {
@@ -535,8 +539,9 @@ namespace BinanceAlgorithmLight
                         opposite_open_order_id = 0;
                         opposite_open_quantity = 0m;
                         SoundCloseOrder();
-                        start = false;
                         NewLineSLClear();
+                        variables.PNL = CalculatePnl(variables.PRICE_SYMBOL);
+                        ReloadSettings();
                     }
                     if (variables.LONG && open_order_id != 0 && opposite_open_order_id != 0 && list_ohlc[list_ohlc.Count - 1].Close > line_tp_1_y[0])
                     {
@@ -547,8 +552,9 @@ namespace BinanceAlgorithmLight
                         opposite_open_order_id = 0;
                         opposite_open_quantity = 0m;
                         SoundCloseOrder();
-                        start = false;
                         NewLineSLClear();
+                        variables.PNL = CalculatePnl(variables.PRICE_SYMBOL);
+                        ReloadSettings();
                     }
                     if (variables.LONG && open_order_id != 0 && opposite_open_order_id != 0 && list_ohlc[list_ohlc.Count - 1].Close < line_tp_2_y[0])
                     {
@@ -569,10 +575,11 @@ namespace BinanceAlgorithmLight
                         quantity_3 = 0m;
                         order_id_3 = 0;
                         SoundCloseOrder();
-                        start = false;
-                        NewLineSLClear();
+                        NewLineSLClear(); 
+                        variables.PNL = CalculatePnl(variables.PRICE_SYMBOL);
+                        ReloadSettings();
                     }
-                    variables.PNL = CalculatePnl();
+                    variables.PNL = CalculatePnl(variables.PRICE_SYMBOL);
                 }
             }
             catch (Exception c)
@@ -581,24 +588,88 @@ namespace BinanceAlgorithmLight
             }
         }
 
-        private decimal CalculatePnl()
+        private decimal CalculatePnl(decimal price)
         {
-            decimal pnl_open_order = 0m;
-            if (open_order_id != 0 && variables.SHORT) pnl_open_order = (open_quantity * variables.PRICE_SYMBOL) - (open_quantity * price_open_order);
-            else if (open_order_id != 0 && variables.LONG) pnl_open_order = (open_quantity * price_open_order) - (open_quantity * variables.PRICE_SYMBOL);
-            decimal pnl_opposite_open_order = 0m;
-            if (opposite_open_order_id != 0 && variables.SHORT) pnl_opposite_open_order = (opposite_open_quantity * price_opposite_open_order) - (opposite_open_quantity * variables.PRICE_SYMBOL);
-            else if (opposite_open_order_id != 0 && variables.LONG) pnl_opposite_open_order = (opposite_open_quantity * variables.PRICE_SYMBOL) - (opposite_open_quantity * price_opposite_open_order);
-            decimal pnl_order_id_1 = 0m;
-            if (order_id_1 != 0 && variables.SHORT) pnl_order_id_1 = (quantity_1 * variables.PRICE_SYMBOL) - (quantity_1 * price_order_1);
-            else if (order_id_1 != 0 && variables.LONG) pnl_order_id_1 = (quantity_1 * price_order_1) - (quantity_1 * variables.PRICE_SYMBOL);
-            decimal pnl_order_id_2 = 0m;
-            if (order_id_2 != 0 && variables.SHORT) pnl_order_id_2 = (quantity_2 * variables.PRICE_SYMBOL) - (quantity_2 * price_order_2);
-            else if (order_id_2 != 0 && variables.LONG) pnl_order_id_2 = (quantity_2 * price_order_2) - (quantity_2 * variables.PRICE_SYMBOL);
-            decimal pnl_order_id_3 = 0m;
-            if (order_id_3 != 0 && variables.SHORT) pnl_order_id_3 = (quantity_3 * variables.PRICE_SYMBOL) - (quantity_3 * price_order_3);
-            else if (order_id_3 != 0 && variables.LONG) pnl_order_id_3 = (quantity_3 * price_order_3) - (quantity_3 * variables.PRICE_SYMBOL);
-            return pnl_open_order + pnl_opposite_open_order + pnl_order_id_1 + pnl_order_id_2 + pnl_order_id_3;
+            decimal sum = 0m;
+            foreach(var it in list_orders)
+            {
+                if(it.PositionSide == PositionSide.Long && it.Side == OrderSide.Sell)
+                {
+                    sum += it.RealizedProfit;
+                    sum -= it.Fee;
+                }
+                if(it.PositionSide == PositionSide.Short && it.Side == OrderSide.Buy)
+                {
+                    sum += it.RealizedProfit;
+                    sum -= it.Fee;
+                }
+                if(opposite_open_order_id != 0 && it.OrderId == opposite_open_order_id)
+                {
+                    if (variables.SHORT)
+                    {
+                        sum += (it.QuantityOfLastFilledTrade * it.AveragePrice) - (it.QuantityOfLastFilledTrade * price);
+                        sum -= it.Fee;
+                    }
+                    else if (variables.LONG)
+                    {
+                        sum += (it.QuantityOfLastFilledTrade * price) - (it.QuantityOfLastFilledTrade * it.AveragePrice);
+                        sum -= it.Fee;
+                    }
+                }
+                if (open_order_id != 0 && it.OrderId == open_order_id)
+                {
+                    if (variables.LONG)
+                    {
+                        sum += (it.QuantityOfLastFilledTrade * it.AveragePrice) - (it.QuantityOfLastFilledTrade * price);
+                        sum -= it.Fee;
+                    }
+                    else if (variables.SHORT)
+                    {
+                        sum += (it.QuantityOfLastFilledTrade * price) - (it.QuantityOfLastFilledTrade * it.AveragePrice);
+                        sum -= it.Fee;
+                    }
+                }
+                if (order_id_1 != 0 && it.OrderId == order_id_1)
+                {
+                    if (variables.LONG)
+                    {
+                        sum += (it.QuantityOfLastFilledTrade * it.AveragePrice) - (it.QuantityOfLastFilledTrade * price);
+                        sum -= it.Fee;
+                    }
+                    else if (variables.SHORT)
+                    {
+                        sum += (it.QuantityOfLastFilledTrade * price) - (it.QuantityOfLastFilledTrade * it.AveragePrice);
+                        sum -= it.Fee;
+                    }
+                }
+                if (order_id_2 != 0 && it.OrderId == order_id_2)
+                {
+                    if (variables.LONG)
+                    {
+                        sum += (it.QuantityOfLastFilledTrade * it.AveragePrice) - (it.QuantityOfLastFilledTrade * price);
+                        sum -= it.Fee;
+                    }
+                    else if (variables.SHORT)
+                    {
+                        sum += (it.QuantityOfLastFilledTrade * price) - (it.QuantityOfLastFilledTrade * it.AveragePrice);
+                        sum -= it.Fee;
+                    }
+                }
+                if (order_id_2 != 0 && it.OrderId == order_id_2)
+                {
+                    if (variables.LONG)
+                    {
+                        sum += (it.QuantityOfLastFilledTrade * it.AveragePrice) - (it.QuantityOfLastFilledTrade * price);
+                        sum -= it.Fee;
+                    }
+                    else if (variables.SHORT)
+                    {
+                        sum += (it.QuantityOfLastFilledTrade * price) - (it.QuantityOfLastFilledTrade * it.AveragePrice);
+                        sum -= it.Fee;
+                    }
+                }
+            }
+            return sum;
         }
 
         #endregion
@@ -788,12 +859,13 @@ namespace BinanceAlgorithmLight
                     StopAsync();
                     LoadingCandlesToDB();
                     if (variables.ONLINE_CHART) {
-                        StartOrderAsync(LIST_SYMBOLS.Text);
-                        StartKlineAsync(); 
+                        SubscribeToOrder(LIST_SYMBOLS.Text);
+                        SubscribeToKline(); 
                     }
                     NewLines(0);
                     LoadingChart();
                     ReloadSettings();
+                    list_orders.Clear();
                     LoadingChartOrders();
                     plt.Plot.AxisAuto();
                     plt.Render();
@@ -828,10 +900,11 @@ namespace BinanceAlgorithmLight
         }
         #endregion
 
-        #region - Async klines -
+        #region - Subscribe To Kline -
         private void START_ASYNC_Click(object sender, RoutedEventArgs e)
         {
-            StartKlineAsync();
+            SubscribeToKline();
+            SubscribeToOrder(LIST_SYMBOLS.Text);
         }
         private void STOP_ASYNC_Click(object sender, RoutedEventArgs e)
         {
@@ -848,7 +921,7 @@ namespace BinanceAlgorithmLight
                 ErrorText.Add($"STOP_ASYNC_Click {c.Message}");
             }
         }
-        public void StartKlineAsync()
+        public void SubscribeToKline()
         {
             socket.socketClient.UsdFuturesStreams.SubscribeToKlineUpdatesAsync(LIST_SYMBOLS.Text, interval_time, Message =>
             {
