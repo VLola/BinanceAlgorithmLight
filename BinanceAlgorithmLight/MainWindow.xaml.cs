@@ -1,5 +1,6 @@
 ﻿using Binance.Net.Enums;
 using Binance.Net.Objects.Models.Futures;
+using Binance.Net.Objects.Models.Futures.Socket;
 using Binance.Net.Objects.Models.Spot;
 using BinanceAlgorithmLight.Binance;
 using BinanceAlgorithmLight.ConnectDB;
@@ -59,6 +60,32 @@ namespace BinanceAlgorithmLight
             EXIT_GRID.Visibility = Visibility.Hidden;
             LOGIN_GRID.Visibility = Visibility.Visible;
             this.DataContext = this;
+        }
+
+        private void StartOrderAsync()
+        {
+
+            var listenKey = socket.futures.Account.StartUserStreamAsync().Result;
+            if (!listenKey.Success) ErrorText.Add($"Failed to start user stream: {listenKey.Error.Message}");
+            var result = socket.socketClient.UsdFuturesStreams.SubscribeToUserDataUpdatesAsync(listenKey: listenKey.Data,
+                onLeverageUpdate => { },
+                onMarginUpdate => { },
+                onAccountUpdate => { },
+                onOrderUpdate => {
+                    OrderUpdate(onOrderUpdate.Data);
+                },
+                onListenKeyExpired => { }
+                ).Result;
+            if (!result.Success) ErrorText.Add($"Failed UserDataUpdates: {result.Error.Message}");
+        }
+
+        void OrderUpdate(BinanceFuturesStreamOrderUpdate OrderUpdate)
+        {
+            Dispatcher.Invoke(new Action(() =>
+            {
+                string json = JsonConvert.SerializeObject(OrderUpdate.UpdateData);
+                ErrorText.Add(json);
+            }));
         }
 
         #region - Symbol Info -
@@ -182,6 +209,7 @@ namespace BinanceAlgorithmLight
         public decimal price_open_order;
         public decimal opposite_open_quantity;
         public long opposite_open_order_id = 0;
+        public decimal price_opposite_open_order;
         private void Bet_Click(object sender, RoutedEventArgs e)
         {
             try
@@ -198,6 +226,7 @@ namespace BinanceAlgorithmLight
                     {
                         start = true;
                         price_open_order = Algorithm.Algorithm.InfoOrderId(socket, symbol, open_order_id);
+                        price_opposite_open_order = Algorithm.Algorithm.InfoOrderId(socket, symbol, opposite_open_order_id);
                         NewLines(Double.Parse(price_open_order.ToString()));
                     }
                     SoundOpenOrder();
@@ -212,6 +241,7 @@ namespace BinanceAlgorithmLight
                     {
                         start = true;
                         price_open_order = Algorithm.Algorithm.InfoOrderId(socket, symbol, open_order_id);
+                        price_opposite_open_order = Algorithm.Algorithm.InfoOrderId(socket, symbol, opposite_open_order_id);
                         NewLines(Double.Parse(price_open_order.ToString()));
                     }
                     SoundOpenOrder();
@@ -323,6 +353,7 @@ namespace BinanceAlgorithmLight
             quantity_3 = 0m;
             start = false;
             variables.START_BET = false;
+            variables.PNL = 0m;
         }
         public decimal quantity_1 = 0m;
         public decimal quantity_2 = 0m;
@@ -562,13 +593,33 @@ namespace BinanceAlgorithmLight
                         NewLineSLClear(); 
                         LoadingChartOrders();
                     }
-
+                    variables.PNL = CalculatePnl();
                 }
             }
             catch (Exception c)
             {
                 ErrorText.Add($"StartAlgorithm {c.Message}");
             }
+        }
+
+        private decimal CalculatePnl()
+        {
+            decimal pnl_open_order = 0m;
+            if (open_order_id != 0 && variables.SHORT) pnl_open_order = (open_quantity * variables.PRICE_SYMBOL) - (open_quantity * price_open_order);
+            else if (open_order_id != 0 && variables.LONG) pnl_open_order = (open_quantity * price_open_order) - (open_quantity * variables.PRICE_SYMBOL);
+            decimal pnl_opposite_open_order = 0m;
+            if (opposite_open_order_id != 0 && variables.SHORT) pnl_opposite_open_order = (opposite_open_quantity * price_opposite_open_order) - (opposite_open_quantity * variables.PRICE_SYMBOL);
+            else if (opposite_open_order_id != 0 && variables.LONG) pnl_opposite_open_order = (opposite_open_quantity * variables.PRICE_SYMBOL) - (opposite_open_quantity * price_opposite_open_order);
+            decimal pnl_order_id_1 = 0m;
+            if (order_id_1 != 0 && variables.SHORT) pnl_order_id_1 = (quantity_1 * variables.PRICE_SYMBOL) - (quantity_1 * price_order_1);
+            else if (order_id_1 != 0 && variables.LONG) pnl_order_id_1 = (quantity_1 * price_order_1) - (quantity_1 * variables.PRICE_SYMBOL);
+            decimal pnl_order_id_2 = 0m;
+            if (order_id_2 != 0 && variables.SHORT) pnl_order_id_2 = (quantity_2 * variables.PRICE_SYMBOL) - (quantity_2 * price_order_2);
+            else if (order_id_2 != 0 && variables.LONG) pnl_order_id_2 = (quantity_2 * price_order_2) - (quantity_2 * variables.PRICE_SYMBOL);
+            decimal pnl_order_id_3 = 0m;
+            if (order_id_3 != 0 && variables.SHORT) pnl_order_id_3 = (quantity_3 * variables.PRICE_SYMBOL) - (quantity_3 * price_order_3);
+            else if (order_id_3 != 0 && variables.LONG) pnl_order_id_3 = (quantity_3 * price_order_3) - (quantity_3 * variables.PRICE_SYMBOL);
+            return pnl_open_order + pnl_opposite_open_order + pnl_order_id_1 + pnl_order_id_2 + pnl_order_id_3;
         }
 
         #endregion
@@ -757,7 +808,10 @@ namespace BinanceAlgorithmLight
                 {
                     StopAsync();
                     LoadingCandlesToDB();
-                    if (variables.ONLINE_CHART) StartKlineAsync();
+                    if (variables.ONLINE_CHART) {
+                        //StartOrderAsync();
+                        StartKlineAsync(); 
+                    }
                     NewLines(0);
                     LoadingChart();
                     LoadingChartOrders();
@@ -798,6 +852,10 @@ namespace BinanceAlgorithmLight
         #endregion
 
         #region - Async klines -
+        private void START_ASYNC_Click(object sender, RoutedEventArgs e)
+        {
+            StartKlineAsync();
+        }
         private void STOP_ASYNC_Click(object sender, RoutedEventArgs e)
         {
             StopAsync();
