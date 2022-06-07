@@ -24,6 +24,7 @@ namespace BinanceAlgorithmLight
 {
     public partial class MainWindow : Window
     {
+        List<BinanceFuturesStreamOrderUpdateData> list_orders = new List<BinanceFuturesStreamOrderUpdateData>();
         public Variables variables { get; set; } = new Variables();
         public string API_KEY { get; set; } = "";
         public string SECRET_KEY { get; set; } = "";
@@ -61,10 +62,9 @@ namespace BinanceAlgorithmLight
             LOGIN_GRID.Visibility = Visibility.Visible;
             this.DataContext = this;
         }
-
+        
         private void StartOrderAsync(string symbol)
         {
-            List<BinanceFuturesStreamOrderUpdateData> list_order = new List<BinanceFuturesStreamOrderUpdateData>();
             var listenKey = socket.futures.Account.StartUserStreamAsync().Result;
             if (!listenKey.Success) ErrorText.Add($"Failed to start user stream: {listenKey.Error.Message}");
             var result = socket.socketClient.UsdFuturesStreams.SubscribeToUserDataUpdatesAsync(listenKey: listenKey.Data,
@@ -74,10 +74,10 @@ namespace BinanceAlgorithmLight
                 onOrderUpdate => {
                     if (onOrderUpdate.Data.UpdateData.Symbol == symbol && onOrderUpdate.Data.UpdateData.Status == OrderStatus.Filled || onOrderUpdate.Data.UpdateData.Symbol == symbol && onOrderUpdate.Data.UpdateData.Status == OrderStatus.PartiallyFilled)
                     {
-                        list_order.Add(onOrderUpdate.Data.UpdateData);
                         Dispatcher.Invoke(new Action(() =>
                         {
-                            variables.LIST_ORDER = list_order;
+                            list_orders.Add(onOrderUpdate.Data.UpdateData);
+                            LoadingChartOrders();
                         }));
                     }
                 },
@@ -128,30 +128,27 @@ namespace BinanceAlgorithmLight
             short_open_order_y.Clear();
             short_close_order_x.Clear();
             short_close_order_y.Clear();
-            string symbol = LIST_SYMBOLS.Text;
-            DateTime start_time = list_ohlc[0].DateTime;
-            List<BinanceFuturesOrder> list = Algorithm.Algorithm.InfoOrder(socket, symbol, start_time);
-            foreach (var it in list)
+            foreach (var it in list_orders)
             {
                 if (it.PositionSide == PositionSide.Long && it.Side == OrderSide.Buy)
                 {
-                    long_open_order_x.Add(it.CreateTime.ToOADate());
-                    long_open_order_y.Add(Double.Parse(it.AvgPrice.ToString()));
+                    long_open_order_x.Add(it.UpdateTime.ToOADate());
+                    long_open_order_y.Add(Double.Parse(it.AveragePrice.ToString()));
                 }
                 if (it.PositionSide == PositionSide.Long && it.Side == OrderSide.Sell)
                 {
-                    long_close_order_x.Add(it.CreateTime.ToOADate());
-                    long_close_order_y.Add(Double.Parse(it.AvgPrice.ToString()));
+                    long_close_order_x.Add(it.UpdateTime.ToOADate());
+                    long_close_order_y.Add(Double.Parse(it.AveragePrice.ToString()));
                 }
                 if (it.PositionSide == PositionSide.Short && it.Side == OrderSide.Sell)
                 {
-                    short_open_order_x.Add(it.CreateTime.ToOADate());
-                    short_open_order_y.Add(Double.Parse(it.AvgPrice.ToString()));
+                    short_open_order_x.Add(it.UpdateTime.ToOADate());
+                    short_open_order_y.Add(Double.Parse(it.AveragePrice.ToString()));
                 }
                 if (it.PositionSide == PositionSide.Short && it.Side == OrderSide.Buy)
                 {
-                    short_close_order_x.Add(it.CreateTime.ToOADate());
-                    short_close_order_y.Add(Double.Parse(it.AvgPrice.ToString()));
+                    short_close_order_x.Add(it.UpdateTime.ToOADate());
+                    short_close_order_y.Add(Double.Parse(it.AveragePrice.ToString()));
                 }
             }
         }
@@ -185,6 +182,7 @@ namespace BinanceAlgorithmLight
         private void LoadingChartOrders()
         {
             CoordinatesOrders();
+            ChartPointsOrders();
         }
         #endregion
 
@@ -244,7 +242,6 @@ namespace BinanceAlgorithmLight
                     }
                     SoundOpenOrder();
                 }
-                LoadingChartOrders();
             }
             catch (Exception c)
             {
@@ -329,7 +326,6 @@ namespace BinanceAlgorithmLight
                 }
                 NewLineSLClear();
                 start = false;
-                LoadingChartOrders();
             }
             catch (Exception c)
             {
@@ -349,9 +345,10 @@ namespace BinanceAlgorithmLight
             quantity_1 = 0m;
             quantity_2 = 0m;
             quantity_3 = 0m;
+            variables.PNL = 0m;
+            list_orders.Clear();
             start = false;
             variables.START_BET = false;
-            variables.PNL = 0m;
         }
         public decimal quantity_1 = 0m;
         public decimal quantity_2 = 0m;
@@ -379,7 +376,6 @@ namespace BinanceAlgorithmLight
                         price_order_1 = Algorithm.Algorithm.InfoOrderId(socket, symbol, order_id_1);
                         decimal average = Math.Round(((open_quantity * price_open_order) + (quantity_1 * price_order_1)) / (quantity_1 + open_quantity), 6);
                         NewLineSL(Decimal.ToDouble(average));
-                        LoadingChartOrders();
                     }
                     if (variables.SHORT && order_id_2 == 0 && list_ohlc[list_ohlc.Count - 1].Close > line_open_2_y[0])
                     {
@@ -389,7 +385,6 @@ namespace BinanceAlgorithmLight
                         price_order_2 = Algorithm.Algorithm.InfoOrderId(socket, symbol, order_id_2);
                         decimal average = Math.Round(((open_quantity * price_open_order) + (quantity_1 * price_order_1) + (quantity_2 * price_order_2)) / (quantity_1 + quantity_2 + open_quantity), 6);
                         NewLineSL(Decimal.ToDouble(average));
-                        LoadingChartOrders();
                     }
                     if (variables.SHORT && order_id_3 == 0 && list_ohlc[list_ohlc.Count - 1].Close > line_open_3_y[0])
                     {
@@ -399,7 +394,6 @@ namespace BinanceAlgorithmLight
                         price_order_3 = Algorithm.Algorithm.InfoOrderId(socket, symbol, order_id_3);
                         decimal average = Math.Round(((open_quantity * price_open_order) + (quantity_1 * price_order_1) + (quantity_2 * price_order_2) + (quantity_3 * price_order_3)) / (quantity_1 + quantity_2 + quantity_3 + open_quantity), 6);
                         NewLineSL(Decimal.ToDouble(average));
-                        LoadingChartOrders();
                     }
                     if (variables.SHORT && list_ohlc[list_ohlc.Count - 1].Close < line_sl_1_y[0])
                     {
@@ -416,7 +410,6 @@ namespace BinanceAlgorithmLight
                             price_open_order = Decimal.Parse(line_sl_1_y[0].ToString());
                             NewLines(line_sl_1_y[0]);
                             NewLineSLClear();
-                            LoadingChartOrders();
                         }
                         else if (order_id_1 != 0 && order_id_2 != 0)
                         {
@@ -429,7 +422,6 @@ namespace BinanceAlgorithmLight
                             price_open_order = Decimal.Parse(line_sl_1_y[0].ToString());
                             NewLines(line_sl_1_y[0]);
                             NewLineSLClear();
-                            LoadingChartOrders();
                         }
                         else if (order_id_1 != 0)
                         {
@@ -440,7 +432,6 @@ namespace BinanceAlgorithmLight
                             price_open_order = Decimal.Parse(line_sl_1_y[0].ToString());
                             NewLines(line_sl_1_y[0]);
                             NewLineSLClear();
-                            LoadingChartOrders();
                         }
                     }
 
@@ -453,7 +444,6 @@ namespace BinanceAlgorithmLight
                         price_order_1 = Algorithm.Algorithm.InfoOrderId(socket, symbol, order_id_1);
                         decimal average = Math.Round(((open_quantity * price_open_order) + (quantity_1 * price_order_1)) / (quantity_1 + open_quantity), 6);
                         NewLineSL(Decimal.ToDouble(average));
-                        LoadingChartOrders();
                     }
                     if (variables.LONG && order_id_2 == 0 && list_ohlc[list_ohlc.Count - 1].Close < line_open_2_y[0])
                     {
@@ -463,7 +453,6 @@ namespace BinanceAlgorithmLight
                         price_order_2 = Algorithm.Algorithm.InfoOrderId(socket, symbol, order_id_2);
                         decimal average = Math.Round(((open_quantity * price_open_order) + (quantity_1 * price_order_1) + (quantity_2 * price_order_2)) / (quantity_1 + quantity_2 + open_quantity), 6);
                         NewLineSL(Decimal.ToDouble(average));
-                        LoadingChartOrders();
                     }
                     if (variables.LONG && order_id_3 == 0 && list_ohlc[list_ohlc.Count - 1].Close < line_open_3_y[0])
                     {
@@ -473,7 +462,6 @@ namespace BinanceAlgorithmLight
                         price_order_3 = Algorithm.Algorithm.InfoOrderId(socket, symbol, order_id_3);
                         decimal average = Math.Round(((open_quantity * price_open_order) + (quantity_1 * price_order_1) + (quantity_2 * price_order_2) + (quantity_3 * price_order_3)) / (quantity_1 + quantity_2 + quantity_3 + open_quantity), 6);
                         NewLineSL(Decimal.ToDouble(average));
-                        LoadingChartOrders();
                     }
                     if (variables.LONG && list_ohlc[list_ohlc.Count - 1].Close > line_sl_1_y[0])
                     {
@@ -490,7 +478,6 @@ namespace BinanceAlgorithmLight
                             price_open_order = Decimal.Parse(line_sl_1_y[0].ToString());
                             NewLines(line_sl_1_y[0]);
                             NewLineSLClear();
-                            LoadingChartOrders();
                         }
                         else if (order_id_1 != 0 && order_id_2 != 0)
                         {
@@ -503,7 +490,6 @@ namespace BinanceAlgorithmLight
                             price_open_order = Decimal.Parse(line_sl_1_y[0].ToString());
                             NewLines(line_sl_1_y[0]);
                             NewLineSLClear();
-                            LoadingChartOrders();
                         }
                         else if (order_id_1 != 0)
                         {
@@ -514,7 +500,6 @@ namespace BinanceAlgorithmLight
                             price_open_order = Decimal.Parse(line_sl_1_y[0].ToString());
                             NewLines(line_sl_1_y[0]);
                             NewLineSLClear();
-                            LoadingChartOrders();
                         }
                     }
 
@@ -540,7 +525,6 @@ namespace BinanceAlgorithmLight
                         SoundCloseOrder();
                         start = false;
                         NewLineSLClear();
-                        LoadingChartOrders();
                     }
                     if (variables.SHORT && open_order_id != 0 && opposite_open_order_id != 0 && list_ohlc[list_ohlc.Count - 1].Close < line_tp_2_y[0])
                     {
@@ -553,7 +537,6 @@ namespace BinanceAlgorithmLight
                         SoundCloseOrder();
                         start = false;
                         NewLineSLClear();
-                        LoadingChartOrders();
                     }
                     if (variables.LONG && open_order_id != 0 && opposite_open_order_id != 0 && list_ohlc[list_ohlc.Count - 1].Close > line_tp_1_y[0])
                     {
@@ -566,7 +549,6 @@ namespace BinanceAlgorithmLight
                         SoundCloseOrder();
                         start = false;
                         NewLineSLClear();
-                        LoadingChartOrders();
                     }
                     if (variables.LONG && open_order_id != 0 && opposite_open_order_id != 0 && list_ohlc[list_ohlc.Count - 1].Close < line_tp_2_y[0])
                     {
@@ -588,8 +570,7 @@ namespace BinanceAlgorithmLight
                         order_id_3 = 0;
                         SoundCloseOrder();
                         start = false;
-                        NewLineSLClear(); 
-                        LoadingChartOrders();
+                        NewLineSLClear();
                     }
                     variables.PNL = CalculatePnl();
                 }
@@ -812,9 +793,8 @@ namespace BinanceAlgorithmLight
                     }
                     NewLines(0);
                     LoadingChart();
-                    LoadingChartOrders();
-                    ChartPointsOrders();
                     ReloadSettings();
+                    LoadingChartOrders();
                     plt.Plot.AxisAuto();
                     plt.Render();
                 }
@@ -837,7 +817,6 @@ namespace BinanceAlgorithmLight
                     candlePlot.YAxisIndex = 1;
                     // Line open order
                     LoadLineOpen();
-                    ChartPointsOrders();
 
                     StartAlgorithm();
                 }

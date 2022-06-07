@@ -180,17 +180,6 @@ namespace BinanceAlgorithmLight.Model
                 OnPropertyChanged("PNL");
             }
         }
-        private List<BinanceFuturesStreamOrderUpdateData> _LIST_ORDER = new List<BinanceFuturesStreamOrderUpdateData>();
-        public List<BinanceFuturesStreamOrderUpdateData> LIST_ORDER
-        {
-            get { return _LIST_ORDER; }
-            set
-            {
-                _LIST_ORDER = value;
-                ErrorText.Add("yes!");
-                OnPropertyChanged("LIST_ORDER");
-            }
-        }
         public event PropertyChangedEventHandler PropertyChanged;
         public void OnPropertyChanged([CallerMemberName] string prop = "")
         {
