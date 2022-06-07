@@ -593,78 +593,45 @@ namespace BinanceAlgorithmLight
             decimal sum = 0m;
             foreach(var it in list_orders)
             {
-                if(it.PositionSide == PositionSide.Long && it.Side == OrderSide.Sell)
+                if(it.OrderId == opposite_open_order_id || it.OrderId == open_order_id || it.OrderId == order_id_1 || it.OrderId == order_id_2 || it.OrderId == order_id_3)
                 {
-                    sum += it.RealizedProfit;
-                    sum -= it.Fee;
-                }
-                if(it.PositionSide == PositionSide.Short && it.Side == OrderSide.Buy)
-                {
-                    sum += it.RealizedProfit;
-                    sum -= it.Fee;
-                }
-                if(opposite_open_order_id != 0 && it.OrderId == opposite_open_order_id)
-                {
-                    if (variables.SHORT)
+                    if (it.OrderId == opposite_open_order_id)
                     {
-                        sum += (it.QuantityOfLastFilledTrade * it.AveragePrice) - (it.QuantityOfLastFilledTrade * price);
-                        sum -= it.Fee;
+                        if (variables.SHORT && it.PositionSide == PositionSide.Short && it.Side == OrderSide.Sell)
+                        {
+                            sum += (it.QuantityOfLastFilledTrade * it.AveragePrice) - (it.QuantityOfLastFilledTrade * price);
+                            sum -= it.Fee;
+                        }
+                        else if (variables.LONG && it.PositionSide == PositionSide.Long && it.Side == OrderSide.Buy)
+                        {
+                            sum += (it.QuantityOfLastFilledTrade * price) - (it.QuantityOfLastFilledTrade * it.AveragePrice);
+                            sum -= it.Fee;
+                        }
                     }
-                    else if (variables.LONG)
+                    if (it.OrderId == open_order_id && it.OrderId == order_id_1 && it.OrderId == order_id_2 && it.OrderId == order_id_3)
                     {
-                        sum += (it.QuantityOfLastFilledTrade * price) - (it.QuantityOfLastFilledTrade * it.AveragePrice);
-                        sum -= it.Fee;
-                    }
-                }
-                if (open_order_id != 0 && it.OrderId == open_order_id)
-                {
-                    if (variables.LONG)
-                    {
-                        sum += (it.QuantityOfLastFilledTrade * it.AveragePrice) - (it.QuantityOfLastFilledTrade * price);
-                        sum -= it.Fee;
-                    }
-                    else if (variables.SHORT)
-                    {
-                        sum += (it.QuantityOfLastFilledTrade * price) - (it.QuantityOfLastFilledTrade * it.AveragePrice);
-                        sum -= it.Fee;
+                        if (variables.LONG && it.PositionSide == PositionSide.Short && it.Side == OrderSide.Sell)
+                        {
+                            sum += (it.QuantityOfLastFilledTrade * it.AveragePrice) - (it.QuantityOfLastFilledTrade * price);
+                            sum -= it.Fee;
+                        }
+                        else if (variables.SHORT && it.PositionSide == PositionSide.Long && it.Side == OrderSide.Buy)
+                        {
+                            sum += (it.QuantityOfLastFilledTrade * price) - (it.QuantityOfLastFilledTrade * it.AveragePrice);
+                            sum -= it.Fee;
+                        }
                     }
                 }
-                if (order_id_1 != 0 && it.OrderId == order_id_1)
+                else
                 {
-                    if (variables.LONG)
+                    if (it.PositionSide == PositionSide.Long && it.Side == OrderSide.Sell)
                     {
-                        sum += (it.QuantityOfLastFilledTrade * it.AveragePrice) - (it.QuantityOfLastFilledTrade * price);
+                        sum += it.RealizedProfit;
                         sum -= it.Fee;
                     }
-                    else if (variables.SHORT)
+                    if (it.PositionSide == PositionSide.Short && it.Side == OrderSide.Buy)
                     {
-                        sum += (it.QuantityOfLastFilledTrade * price) - (it.QuantityOfLastFilledTrade * it.AveragePrice);
-                        sum -= it.Fee;
-                    }
-                }
-                if (order_id_2 != 0 && it.OrderId == order_id_2)
-                {
-                    if (variables.LONG)
-                    {
-                        sum += (it.QuantityOfLastFilledTrade * it.AveragePrice) - (it.QuantityOfLastFilledTrade * price);
-                        sum -= it.Fee;
-                    }
-                    else if (variables.SHORT)
-                    {
-                        sum += (it.QuantityOfLastFilledTrade * price) - (it.QuantityOfLastFilledTrade * it.AveragePrice);
-                        sum -= it.Fee;
-                    }
-                }
-                if (order_id_2 != 0 && it.OrderId == order_id_2)
-                {
-                    if (variables.LONG)
-                    {
-                        sum += (it.QuantityOfLastFilledTrade * it.AveragePrice) - (it.QuantityOfLastFilledTrade * price);
-                        sum -= it.Fee;
-                    }
-                    else if (variables.SHORT)
-                    {
-                        sum += (it.QuantityOfLastFilledTrade * price) - (it.QuantityOfLastFilledTrade * it.AveragePrice);
+                        sum += it.RealizedProfit;
                         sum -= it.Fee;
                     }
                 }
@@ -889,6 +856,8 @@ namespace BinanceAlgorithmLight
                     candlePlot.YAxisIndex = 1;
                     // Line open order
                     LoadLineOpen();
+                    // Orders
+                    ChartPointsOrders();
 
                     StartAlgorithm();
                 }
