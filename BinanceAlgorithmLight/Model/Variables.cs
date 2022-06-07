@@ -1,4 +1,7 @@
-﻿using System.ComponentModel;
+﻿using Binance.Net.Objects.Models.Futures.Socket;
+using BinanceAlgorithmLight.Errors;
+using System.Collections.Generic;
+using System.ComponentModel;
 using System.Runtime.CompilerServices;
 
 namespace BinanceAlgorithmLight.Model
@@ -175,6 +178,17 @@ namespace BinanceAlgorithmLight.Model
             {
                 _PNL = value;
                 OnPropertyChanged("PNL");
+            }
+        }
+        private List<BinanceFuturesStreamOrderUpdateData> _LIST_ORDER = new List<BinanceFuturesStreamOrderUpdateData>();
+        public List<BinanceFuturesStreamOrderUpdateData> LIST_ORDER
+        {
+            get { return _LIST_ORDER; }
+            set
+            {
+                _LIST_ORDER = value;
+                ErrorText.Add("yes!");
+                OnPropertyChanged("LIST_ORDER");
             }
         }
         public event PropertyChangedEventHandler PropertyChanged;

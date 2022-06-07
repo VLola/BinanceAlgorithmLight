@@ -62,9 +62,9 @@ namespace BinanceAlgorithmLight
             this.DataContext = this;
         }
 
-        private void StartOrderAsync()
+        private void StartOrderAsync(string symbol)
         {
-
+            List<BinanceFuturesStreamOrderUpdateData> list_order = new List<BinanceFuturesStreamOrderUpdateData>();
             var listenKey = socket.futures.Account.StartUserStreamAsync().Result;
             if (!listenKey.Success) ErrorText.Add($"Failed to start user stream: {listenKey.Error.Message}");
             var result = socket.socketClient.UsdFuturesStreams.SubscribeToUserDataUpdatesAsync(listenKey: listenKey.Data,
@@ -72,20 +72,18 @@ namespace BinanceAlgorithmLight
                 onMarginUpdate => { },
                 onAccountUpdate => { },
                 onOrderUpdate => {
-                    OrderUpdate(onOrderUpdate.Data);
+                    if (onOrderUpdate.Data.UpdateData.Symbol == symbol && onOrderUpdate.Data.UpdateData.Status == OrderStatus.Filled || onOrderUpdate.Data.UpdateData.Symbol == symbol && onOrderUpdate.Data.UpdateData.Status == OrderStatus.PartiallyFilled)
+                    {
+                        list_order.Add(onOrderUpdate.Data.UpdateData);
+                        Dispatcher.Invoke(new Action(() =>
+                        {
+                            variables.LIST_ORDER = list_order;
+                        }));
+                    }
                 },
                 onListenKeyExpired => { }
                 ).Result;
             if (!result.Success) ErrorText.Add($"Failed UserDataUpdates: {result.Error.Message}");
-        }
-
-        void OrderUpdate(BinanceFuturesStreamOrderUpdate OrderUpdate)
-        {
-            Dispatcher.Invoke(new Action(() =>
-            {
-                string json = JsonConvert.SerializeObject(OrderUpdate.UpdateData);
-                ErrorText.Add(json);
-            }));
         }
 
         #region - Symbol Info -
@@ -557,7 +555,7 @@ namespace BinanceAlgorithmLight
                         NewLineSLClear();
                         LoadingChartOrders();
                     }
-                    if (variables.LONG && open_order_id != 0 && opposite_open_order_id != 0 && list_ohlc[list_ohlc.Count - 1].Close > line_tp_2_y[0])
+                    if (variables.LONG && open_order_id != 0 && opposite_open_order_id != 0 && list_ohlc[list_ohlc.Count - 1].Close > line_tp_1_y[0])
                     {
                         Algorithm.Algorithm.Order(socket, symbol, OrderSide.Buy, FuturesOrderType.Market, open_quantity, PositionSide.Short);
                         Algorithm.Algorithm.Order(socket, symbol, OrderSide.Sell, FuturesOrderType.Market, opposite_open_quantity, PositionSide.Long);
@@ -570,7 +568,7 @@ namespace BinanceAlgorithmLight
                         NewLineSLClear();
                         LoadingChartOrders();
                     }
-                    if (variables.LONG && open_order_id != 0 && opposite_open_order_id != 0 && list_ohlc[list_ohlc.Count - 1].Close < line_tp_1_y[0])
+                    if (variables.LONG && open_order_id != 0 && opposite_open_order_id != 0 && list_ohlc[list_ohlc.Count - 1].Close < line_tp_2_y[0])
                     {
                         decimal quantity_sum = quantity_1 + quantity_2 + quantity_3;
                         Algorithm.Algorithm.Order(socket, symbol, OrderSide.Buy, FuturesOrderType.Market, quantity_1, PositionSide.Short);
@@ -809,7 +807,7 @@ namespace BinanceAlgorithmLight
                     StopAsync();
                     LoadingCandlesToDB();
                     if (variables.ONLINE_CHART) {
-                        //StartOrderAsync();
+                        StartOrderAsync(LIST_SYMBOLS.Text);
                         StartKlineAsync(); 
                     }
                     NewLines(0);
