@@ -1,5 +1,6 @@
 ﻿using Binance.Net.Objects.Models.Futures.Socket;
 using BinanceAlgorithmLight.Errors;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
@@ -178,6 +179,16 @@ namespace BinanceAlgorithmLight.Model
             {
                 _PNL = value;
                 OnPropertyChanged("PNL");
+            }
+        }
+        private decimal _ACCOUNT_BALANCE;
+        public decimal ACCOUNT_BALANCE
+        {
+            get { return _ACCOUNT_BALANCE; }
+            set
+            {
+                _ACCOUNT_BALANCE = Math.Round(value, 3);
+                OnPropertyChanged("ACCOUNT_BALANCE");
             }
         }
         public event PropertyChangedEventHandler PropertyChanged;

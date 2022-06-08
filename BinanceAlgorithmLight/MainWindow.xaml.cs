@@ -18,6 +18,7 @@ using System.Linq;
 using System.Media;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Threading;
 using Color = System.Drawing.Color;
 
 namespace BinanceAlgorithmLight
@@ -62,17 +63,37 @@ namespace BinanceAlgorithmLight
             LOGIN_GRID.Visibility = Visibility.Visible;
             this.DataContext = this;
         }
+        public void BalanceFuture()
+        {
+            var result = socket.futures.Account.GetAccountInfoAsync().Result;
+            if (!result.Success)
+            {
+                ErrorText.Add($"Failed BalanceFuture: {result.Error.Message}");
+                BalanceFuture();
+            }
+            else
+            {
+                variables.ACCOUNT_BALANCE = result.Data.TotalMarginBalance;
+            }
+        }
 
         #region - Subscribe To Order -
         private void SubscribeToOrder(string symbol)
         {
+            ErrorText.Add($"Subscribe to orders {symbol}");
             var listenKey = socket.futures.Account.StartUserStreamAsync().Result;
             if (!listenKey.Success) ErrorText.Add($"Failed to start user stream: {listenKey.Error.Message}");
             var result = socket.socketClient.UsdFuturesStreams.SubscribeToUserDataUpdatesAsync(listenKey: listenKey.Data,
                 onLeverageUpdate => { },
                 onMarginUpdate => { },
-                onAccountUpdate => { },
-                onOrderUpdate => {
+                onAccountUpdate => {
+                    Dispatcher.Invoke(new Action(() =>
+                    {
+                        variables.ACCOUNT_BALANCE = onAccountUpdate.Data.UpdateData.Balances.ToList()[0].CrossWalletBalance;
+                    }));
+                },
+                onOrderUpdate =>
+                {
                     if (onOrderUpdate.Data.UpdateData.Symbol == symbol && onOrderUpdate.Data.UpdateData.Status == OrderStatus.Filled || onOrderUpdate.Data.UpdateData.Symbol == symbol && onOrderUpdate.Data.UpdateData.Status == OrderStatus.PartiallyFilled)
                     {
                         Dispatcher.Invoke(new Action(() =>
@@ -83,9 +104,58 @@ namespace BinanceAlgorithmLight
                         }));
                     }
                 },
-                onListenKeyExpired => { }
+                onListenKeyExpired => {
+                    Dispatcher.Invoke(new Action(() =>
+                    {
+                        ErrorText.Add($"Listen Key Expired {symbol}");
+                        SubscribeToOrder(LIST_SYMBOLS.Text);
+                    }));
+                }
                 ).Result;
-            if (!result.Success) ErrorText.Add($"Failed UserDataUpdates: {result.Error.Message}");
+            if (!result.Success){ 
+                ErrorText.Add($"Failed UserDataUpdates: {result.Error.Message}");
+            }
+        }
+        #endregion
+
+        #region - Subscribe To Kline -
+        private void START_ASYNC_Click(object sender, RoutedEventArgs e)
+        {
+            SubscribeToKline();
+            SubscribeToOrder(LIST_SYMBOLS.Text);
+        }
+        private void STOP_ASYNC_Click(object sender, RoutedEventArgs e)
+        {
+            StopAsync();
+        }
+        private void StopAsync()
+        {
+            try
+            {
+                socket.socketClient.UnsubscribeAllAsync();
+            }
+            catch (Exception c)
+            {
+                ErrorText.Add($"STOP_ASYNC_Click {c.Message}");
+            }
+        }
+        public void SubscribeToKline()
+        {
+            socket.socketClient.UsdFuturesStreams.SubscribeToKlineUpdatesAsync(LIST_SYMBOLS.Text, interval_time, Message =>
+            {
+                Dispatcher.Invoke(new Action(() =>
+                {
+                    variables.PRICE_SYMBOL = Message.Data.Data.ClosePrice;
+                    UpdateListOHLC(new OHLC(Decimal.ToDouble(Message.Data.Data.OpenPrice), Decimal.ToDouble(Message.Data.Data.HighPrice), Decimal.ToDouble(Message.Data.Data.LowPrice), Decimal.ToDouble(Message.Data.Data.ClosePrice), Message.Data.Data.OpenTime, timeSpan));
+                    LoadingChart();
+                    plt.Render();
+                }));
+            });
+        }
+        private void UpdateListOHLC(OHLC ohlc)
+        {
+            if (ohlc.DateTime == list_ohlc[list_ohlc.Count - 1].DateTime) list_ohlc.RemoveAt(list_ohlc.Count - 1);
+            list_ohlc.Add(ohlc);
         }
         #endregion
 
@@ -588,12 +658,15 @@ namespace BinanceAlgorithmLight
             }
         }
 
+        #endregion
+
+        #region - Calculate Pnl -
         private decimal CalculatePnl(decimal price)
         {
             decimal sum = 0m;
-            foreach(var it in list_orders)
+            foreach (var it in list_orders)
             {
-                if(it.OrderId == opposite_open_order_id || it.OrderId == open_order_id || it.OrderId == order_id_1 || it.OrderId == order_id_2 || it.OrderId == order_id_3)
+                if (it.OrderId == opposite_open_order_id || it.OrderId == open_order_id || it.OrderId == order_id_1 || it.OrderId == order_id_2 || it.OrderId == order_id_3)
                 {
                     if (it.OrderId == opposite_open_order_id)
                     {
@@ -608,7 +681,7 @@ namespace BinanceAlgorithmLight
                             sum -= it.Fee;
                         }
                     }
-                    if (it.OrderId == open_order_id && it.OrderId == order_id_1 && it.OrderId == order_id_2 && it.OrderId == order_id_3)
+                    else if (it.OrderId == open_order_id || it.OrderId == order_id_1 || it.OrderId == order_id_2 || it.OrderId == order_id_3)
                     {
                         if (variables.LONG && it.PositionSide == PositionSide.Short && it.Side == OrderSide.Sell)
                         {
@@ -629,7 +702,7 @@ namespace BinanceAlgorithmLight
                         sum += it.RealizedProfit;
                         sum -= it.Fee;
                     }
-                    if (it.PositionSide == PositionSide.Short && it.Side == OrderSide.Buy)
+                    else if (it.PositionSide == PositionSide.Short && it.Side == OrderSide.Buy)
                     {
                         sum += it.RealizedProfit;
                         sum -= it.Fee;
@@ -638,7 +711,6 @@ namespace BinanceAlgorithmLight
             }
             return sum;
         }
-
         #endregion
 
         #region - Event Text Changed -
@@ -815,6 +887,8 @@ namespace BinanceAlgorithmLight
         private void LIST_SYMBOLS_DropDownClosed(object sender, EventArgs e)
         {
             ReloadChart();
+            var listenKey = socket.futures.Account.StartUserStreamAsync().Result;
+            if (!listenKey.Success) ErrorText.Add($"Failed to start user stream: {listenKey.Error.Message}");
         }
         
         private void ReloadChart()
@@ -826,6 +900,7 @@ namespace BinanceAlgorithmLight
                     StopAsync();
                     LoadingCandlesToDB();
                     if (variables.ONLINE_CHART) {
+                        BalanceFuture();
                         SubscribeToOrder(LIST_SYMBOLS.Text);
                         SubscribeToKline(); 
                     }
@@ -867,48 +942,6 @@ namespace BinanceAlgorithmLight
                 ErrorText.Add($"LoadingChart {c.Message}");
             }
         }
-        #endregion
-
-        #region - Subscribe To Kline -
-        private void START_ASYNC_Click(object sender, RoutedEventArgs e)
-        {
-            SubscribeToKline();
-            SubscribeToOrder(LIST_SYMBOLS.Text);
-        }
-        private void STOP_ASYNC_Click(object sender, RoutedEventArgs e)
-        {
-            StopAsync();
-        }
-        private void StopAsync()
-        {
-            try
-            {
-                socket.socketClient.UnsubscribeAllAsync();
-            }
-            catch (Exception c)
-            {
-                ErrorText.Add($"STOP_ASYNC_Click {c.Message}");
-            }
-        }
-        public void SubscribeToKline()
-        {
-            socket.socketClient.UsdFuturesStreams.SubscribeToKlineUpdatesAsync(LIST_SYMBOLS.Text, interval_time, Message =>
-            {
-                Dispatcher.Invoke(new Action(() =>
-                {
-                    variables.PRICE_SYMBOL = Message.Data.Data.ClosePrice;
-                    UpdateListOHLC(new OHLC(Decimal.ToDouble(Message.Data.Data.OpenPrice), Decimal.ToDouble(Message.Data.Data.HighPrice), Decimal.ToDouble(Message.Data.Data.LowPrice), Decimal.ToDouble(Message.Data.Data.ClosePrice), Message.Data.Data.OpenTime, timeSpan));
-                    LoadingChart();
-                    plt.Render();
-                }));
-            });
-        }
-        private void UpdateListOHLC(OHLC ohlc)
-        {
-            if (ohlc.DateTime == list_ohlc[list_ohlc.Count - 1].DateTime) list_ohlc.RemoveAt(list_ohlc.Count - 1);
-            list_ohlc.Add(ohlc);
-        }
-
         #endregion
 
         #region - Load Candles -
