@@ -19,6 +19,7 @@ using System.Media;
 using System.Threading;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Input;
 using System.Windows.Threading;
 using Color = System.Drawing.Color;
 
@@ -27,8 +28,9 @@ namespace BinanceAlgorithmLight
     public partial class MainWindow : Window
     {
         public FileSystemWatcher error_watcher = new FileSystemWatcher();
-        public ErrorText ErrorText = new ErrorText();
-        List<BinanceFuturesStreamOrderUpdateData> list_orders = new List<BinanceFuturesStreamOrderUpdateData>();
+        public ErrorText ErrorText = new ErrorText(); 
+        public List<BinanceFuturesStreamOrderUpdateData> history_list_orders = new List<BinanceFuturesStreamOrderUpdateData>();
+        public List<BinanceFuturesStreamOrderUpdateData> list_orders = new List<BinanceFuturesStreamOrderUpdateData>();
         public Variables variables { get; set; } = new Variables();
         public string API_KEY { get; set; } = "";
         public string SECRET_KEY { get; set; } = "";
@@ -68,9 +70,36 @@ namespace BinanceAlgorithmLight
             INTERVAL_TIME.ItemsSource = IntervalCandles.Intervals();
             INTERVAL_TIME.SelectedIndex = 0;
             LIST_SYMBOLS.ItemsSource = list_sumbols_name;
+            HISTORY_ORDER.ItemsSource = history_list_orders;
             EXIT_GRID.Visibility = Visibility.Hidden;
             LOGIN_GRID.Visibility = Visibility.Visible;
             this.DataContext = this;
+        }
+        #endregion
+
+        #region - Trede History -
+        private void TAB_CONTROL_MouseLeftButtonUp(object sender, MouseButtonEventArgs e)
+        {
+            try
+            {
+                decimal sum_total = 0m;
+                int count_orders = 0;
+                foreach (var it in history_list_orders)
+                {
+                    sum_total += it.RealizedProfit;
+                    sum_total -= it.Fee;
+                    count_orders++;
+                }
+                COUNT_ORDERS.Content = count_orders;
+                SUM_TOTAL.Content = sum_total;
+                if (sum_total > 0) SUM_TOTAL.Foreground = System.Windows.Media.Brushes.Green;
+                else if (sum_total < 0) SUM_TOTAL.Foreground = System.Windows.Media.Brushes.Red;
+                HISTORY_ORDER.Items.Refresh();
+            }
+            catch (Exception c)
+            {
+                ErrorText.Add($"TAB_CONTROL_MouseLeftButtonUp {c.Message}");
+            }
         }
         #endregion
 
@@ -108,6 +137,11 @@ namespace BinanceAlgorithmLight
         #endregion
 
         #region - Subscribe To Order -
+
+        private void ClearListOrders()
+        {
+            if (list_orders.Count > 0) list_orders.Clear();
+        }
         private void PriceOrder(BinanceFuturesStreamOrderUpdateData order)
         {
             if(order.PositionSide == PositionSide.Long && order.Side == OrderSide.Buy || order.PositionSide == PositionSide.Short && order.Side == OrderSide.Sell)
@@ -193,8 +227,9 @@ namespace BinanceAlgorithmLight
                         {
                             Dispatcher.Invoke(new Action(() =>
                             {
-                                if (onOrderUpdate.Data.UpdateData.OrderId == open_order_id && !CheckOrderIdToListOrders() || onOrderUpdate.Data.UpdateData.OrderId == opposite_open_order_id && !CheckOrderIdToListOrders()) list_orders.Clear();
+                                if (onOrderUpdate.Data.UpdateData.OrderId == open_order_id && !CheckOrderIdToListOrders() || onOrderUpdate.Data.UpdateData.OrderId == opposite_open_order_id && !CheckOrderIdToListOrders()) ClearListOrders();
                                 list_orders.Add(onOrderUpdate.Data.UpdateData);
+                                history_list_orders.Add(onOrderUpdate.Data.UpdateData);
                                 PriceOrder(onOrderUpdate.Data.UpdateData);
                                 LoadingChartOrders();
                             }));
@@ -1002,7 +1037,7 @@ namespace BinanceAlgorithmLight
                     NewLines(0);
                     LoadingChart();
                     ReloadSettings();
-                    list_orders.Clear();
+                    ClearListOrders();
                     LoadingChartOrders();
                     AverageCandle();
                     plt.Plot.AxisAuto();
