@@ -12,7 +12,7 @@ namespace BinanceAlgorithmLight.ConnectDB
 
         public static bool Check(string trial_key)
         {
-            return true;
+            //return true;
             using (IDbConnection connection = new SqlConnection(connectionString))
             {
                 List<string> list = connection.Query<string>($"SELECT * FROM Trials").ToList();

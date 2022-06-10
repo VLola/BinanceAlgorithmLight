@@ -16,6 +16,7 @@ using System.Drawing;
 using System.IO;
 using System.Linq;
 using System.Media;
+using System.Threading;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Threading;
@@ -25,6 +26,8 @@ namespace BinanceAlgorithmLight
 {
     public partial class MainWindow : Window
     {
+        public FileSystemWatcher error_watcher = new FileSystemWatcher();
+        public ErrorText ErrorText = new ErrorText();
         List<BinanceFuturesStreamOrderUpdateData> list_orders = new List<BinanceFuturesStreamOrderUpdateData>();
         public Variables variables { get; set; } = new Variables();
         public string API_KEY { get; set; } = "";
@@ -53,6 +56,12 @@ namespace BinanceAlgorithmLight
         public MainWindow()
         {
             InitializeComponent();
+            Loaded += MainWindow_Loaded;
+        }
+
+        #region - Main Loaded -
+        private void MainWindow_Loaded(object sender, RoutedEventArgs e)
+        {
             ErrorWatcher();
             Chart();
             Clients();
@@ -63,6 +72,26 @@ namespace BinanceAlgorithmLight
             LOGIN_GRID.Visibility = Visibility.Visible;
             this.DataContext = this;
         }
+        #endregion
+
+        #region - Average Candle -
+        private void Average_Click(object sender, RoutedEventArgs e)
+        {
+            AverageCandle();
+        }
+
+        private void AverageCandle()
+        {
+            double sum_low_high_price = 0;
+            foreach (var it in list_ohlc)
+            {
+                sum_low_high_price += (it.High - it.Low);
+            }
+            variables.AVERAGE_CANDLE = Math.Round((sum_low_high_price / (list_ohlc.Count - 1)) / (Decimal.ToDouble(variables.PRICE_SYMBOL) / 1000));
+        }
+        #endregion
+
+        #region - Balance -
         public void BalanceFuture()
         {
             var result = socket.futures.Account.GetAccountInfoAsync().Result;
@@ -76,45 +105,139 @@ namespace BinanceAlgorithmLight
                 variables.ACCOUNT_BALANCE = result.Data.TotalMarginBalance;
             }
         }
+        #endregion
 
         #region - Subscribe To Order -
-        private void SubscribeToOrder(string symbol)
+        private void PriceOrder(BinanceFuturesStreamOrderUpdateData order)
         {
-            ErrorText.Add($"Subscribe to orders {symbol}");
-            var listenKey = socket.futures.Account.StartUserStreamAsync().Result;
-            if (!listenKey.Success) ErrorText.Add($"Failed to start user stream: {listenKey.Error.Message}");
-            var result = socket.socketClient.UsdFuturesStreams.SubscribeToUserDataUpdatesAsync(listenKey: listenKey.Data,
-                onLeverageUpdate => { },
-                onMarginUpdate => { },
-                onAccountUpdate => {
+            if(order.PositionSide == PositionSide.Long && order.Side == OrderSide.Buy || order.PositionSide == PositionSide.Short && order.Side == OrderSide.Sell)
+            {
+                if (order.OrderId == open_order_id)
+                {
+                    price_open_order = order.AveragePrice;
+                    NewLines(Double.Parse(price_open_order.ToString()));
+                }
+                else if (order.OrderId == order_id_1)
+                {
+                    price_order_1 = order.AveragePrice;
+                    decimal average = Math.Round(((open_quantity * price_open_order) + (quantity_1 * price_order_1)) / (quantity_1 + open_quantity), 6);
+                    NewLineSL(Decimal.ToDouble(average));
+                    permission_to_close_orders = true;
+                }
+                else if (order.OrderId == order_id_2)
+                {
+                    price_order_2 = order.AveragePrice;
+                    decimal average = Math.Round(((open_quantity * price_open_order) + (quantity_1 * price_order_1) + (quantity_2 * price_order_2)) / (quantity_1 + quantity_2 + open_quantity), 6);
+                    NewLineSL(Decimal.ToDouble(average));
+                    permission_to_close_orders = true;
+                }
+                else if (order.OrderId == order_id_3)
+                {
+                    price_order_3 = order.AveragePrice;
+                    decimal average = Math.Round(((open_quantity * price_open_order) + (quantity_1 * price_order_1) + (quantity_2 * price_order_2) + (quantity_3 * price_order_3)) / (quantity_1 + quantity_2 + quantity_3 + open_quantity), 6);
+                    NewLineSL(Decimal.ToDouble(average));
+                    permission_to_close_orders = true;
+                }
+            }
+            else if (order.OrderId == close_order_id)
+            {
+                close_order_id = 0;
+                price_open_order = Decimal.Parse(line_sl_1_y[0].ToString());
+                NewLines(line_sl_1_y[0]);
+                NewLineSLClear();
+            }
+            
+        }
+        public void SubscribeToOrderThread()
+        {
+            try
+            {
+                string symbol = LIST_SYMBOLS.Text;
+                new Thread(() => { SubscribeToOrder(symbol); }).Start();
+            }
+            catch (Exception c)
+            {
+                ErrorText.Add($"SubscribeToOrderThread {c.Message}");
+            }
+        }
+        public async void SubscribeToOrder(string symbol)
+        {
+            try
+            {
+                bool unsubscribe = true;
+                Dispatcher.Invoke(new Action(() =>
+                {
+                    ErrorText.Add($"Subscribe to orders {symbol}");
+                }));
+                var listenKey = await socket.futures.Account.StartUserStreamAsync();
+                if (!listenKey.Success) {
                     Dispatcher.Invoke(new Action(() =>
                     {
-                        variables.ACCOUNT_BALANCE = onAccountUpdate.Data.UpdateData.Balances.ToList()[0].CrossWalletBalance;
+                        ErrorText.Add($"Failed to start user stream: {listenKey.Error.Message}"); 
+                        SubscribeToOrderThread();
                     }));
-                },
-                onOrderUpdate =>
-                {
-                    if (onOrderUpdate.Data.UpdateData.Symbol == symbol && onOrderUpdate.Data.UpdateData.Status == OrderStatus.Filled || onOrderUpdate.Data.UpdateData.Symbol == symbol && onOrderUpdate.Data.UpdateData.Status == OrderStatus.PartiallyFilled)
-                    {
+                    return;
+                }
+                var result = await socket.socketClient.UsdFuturesStreams.SubscribeToUserDataUpdatesAsync(listenKey: listenKey.Data,
+                    onLeverageUpdate => { },
+                    onMarginUpdate => { },
+                    onAccountUpdate => {
                         Dispatcher.Invoke(new Action(() =>
                         {
-                            list_orders.Add(onOrderUpdate.Data.UpdateData);
-                            LoadingChartOrders();
-                            variables.PNL = CalculatePnl(variables.PRICE_SYMBOL);
+                            variables.ACCOUNT_BALANCE = onAccountUpdate.Data.UpdateData.Balances.ToList()[0].CrossWalletBalance;
                         }));
+                    },
+                    onOrderUpdate =>
+                    {
+                        if (onOrderUpdate.Data.UpdateData.Symbol == symbol && onOrderUpdate.Data.UpdateData.Status == OrderStatus.Filled || onOrderUpdate.Data.UpdateData.Symbol == symbol && onOrderUpdate.Data.UpdateData.Status == OrderStatus.PartiallyFilled)
+                        {
+                            Dispatcher.Invoke(new Action(() =>
+                            {
+                                if (onOrderUpdate.Data.UpdateData.OrderId == open_order_id && !CheckOrderIdToListOrders() || onOrderUpdate.Data.UpdateData.OrderId == opposite_open_order_id && !CheckOrderIdToListOrders()) list_orders.Clear();
+                                list_orders.Add(onOrderUpdate.Data.UpdateData);
+                                PriceOrder(onOrderUpdate.Data.UpdateData);
+                                LoadingChartOrders();
+                            }));
+                        }
+                    },
+                    onListenKeyExpired => {
+                        if (unsubscribe)
+                        {
+                            Dispatcher.Invoke(new Action(() =>
+                            {
+                                ErrorText.Add($"Listen Key Expired {symbol}");
+                                SubscribeToOrderThread();
+                            }));
+                        }
+                        unsubscribe = false;
                     }
-                },
-                onListenKeyExpired => {
+                    );
+                if (!result.Success)
+                {
                     Dispatcher.Invoke(new Action(() =>
                     {
-                        ErrorText.Add($"Listen Key Expired {symbol}");
-                        SubscribeToOrder(LIST_SYMBOLS.Text);
+                        ErrorText.Add($"Failed UserDataUpdates: {result.Error.Message}");
+                        SubscribeToOrderThread();
                     }));
                 }
-                ).Result;
-            if (!result.Success){ 
-                ErrorText.Add($"Failed UserDataUpdates: {result.Error.Message}");
             }
+            catch (Exception c)
+            {
+                Dispatcher.Invoke(new Action(() =>
+                {
+                    ErrorText.Add($"SubscribeToOrder {c.Message}");
+                    SubscribeToOrderThread();
+                }));
+            }
+        }
+
+        private bool CheckOrderIdToListOrders()
+        {
+            foreach(var it in list_orders)
+            {
+                if (it.OrderId == open_order_id || it.OrderId == opposite_open_order_id) return true;
+            }
+            return false;
         }
         #endregion
 
@@ -122,7 +245,7 @@ namespace BinanceAlgorithmLight
         private void START_ASYNC_Click(object sender, RoutedEventArgs e)
         {
             SubscribeToKline();
-            SubscribeToOrder(LIST_SYMBOLS.Text);
+            SubscribeToOrderThread();
         }
         private void STOP_ASYNC_Click(object sender, RoutedEventArgs e)
         {
@@ -141,16 +264,35 @@ namespace BinanceAlgorithmLight
         }
         public void SubscribeToKline()
         {
-            socket.socketClient.UsdFuturesStreams.SubscribeToKlineUpdatesAsync(LIST_SYMBOLS.Text, interval_time, Message =>
+            try
             {
-                Dispatcher.Invoke(new Action(() =>
+                socket.socketClient.UsdFuturesStreams.SubscribeToKlineUpdatesAsync(LIST_SYMBOLS.Text, interval_time, Message =>
                 {
-                    variables.PRICE_SYMBOL = Message.Data.Data.ClosePrice;
-                    UpdateListOHLC(new OHLC(Decimal.ToDouble(Message.Data.Data.OpenPrice), Decimal.ToDouble(Message.Data.Data.HighPrice), Decimal.ToDouble(Message.Data.Data.LowPrice), Decimal.ToDouble(Message.Data.Data.ClosePrice), Message.Data.Data.OpenTime, timeSpan));
-                    LoadingChart();
-                    plt.Render();
-                }));
-            });
+                    Dispatcher.Invoke(new Action(() =>
+                    {
+                        variables.PRICE_SYMBOL = Message.Data.Data.ClosePrice;
+                        UpdateListOHLC(new OHLC(Decimal.ToDouble(Message.Data.Data.OpenPrice), Decimal.ToDouble(Message.Data.Data.HighPrice), Decimal.ToDouble(Message.Data.Data.LowPrice), Decimal.ToDouble(Message.Data.Data.ClosePrice), Message.Data.Data.OpenTime, timeSpan));
+                        LoadingChart();
+                        plt.Render();
+                        if (variables.EXPECTED_PNL_CHECK && variables.PNL > variables.EXPECTED_PNL && variables.RESTART_ALGORITHM)
+                        {
+                            variables.PNL = 0m;
+                            CloseOrders();
+                            variables.START_BET = true;
+                            OpenOrders();
+                        }
+                        else if (variables.EXPECTED_PNL_CHECK && variables.PNL > variables.EXPECTED_PNL)
+                        {
+                            variables.PNL = 0m;
+                            CloseOrders();
+                        }
+                    }));
+                });
+            }
+            catch (Exception c)
+            {
+                ErrorText.Add($"STOP_ASYNC_Click {c.Message}");
+            }
         }
         private void UpdateListOHLC(OHLC ohlc)
         {
@@ -162,22 +304,29 @@ namespace BinanceAlgorithmLight
         #region - Symbol Info -
         private void ExchangeInfo()
         {
-            string symbol = LIST_SYMBOLS.Text;
-            var result = socket.futures.ExchangeData.GetExchangeInfoAsync();
-            if (!result.Result.Success) ErrorText.Add("Error ExchangeInfo");
-            else
+            try
             {
-                List<BinanceFuturesUsdtSymbol> list = result.Result.Data.Symbols.ToList();
-                foreach(var it in list)
+                string symbol = LIST_SYMBOLS.Text;
+                var result = socket.futures.ExchangeData.GetExchangeInfoAsync();
+                if (!result.Result.Success) ErrorText.Add("Error ExchangeInfo");
+                else
                 {
-                    if (symbol == it.Name)
+                    List<BinanceFuturesUsdtSymbol> list = result.Result.Data.Symbols.ToList();
+                    foreach (var it in list)
                     {
-                        variables.MIN_QTY = it.LotSizeFilter.MinQuantity;
-                        variables.STEP_SIZE = it.LotSizeFilter.StepSize;
-                        break;
+                        if (symbol == it.Name)
+                        {
+                            variables.MIN_QTY = it.LotSizeFilter.MinQuantity;
+                            variables.STEP_SIZE = it.LotSizeFilter.StepSize;
+                            break;
+                        }
                     }
+                    variables.USDT_MIN = variables.MIN_QTY * variables.PRICE_SYMBOL;
                 }
-                variables.USDT_MIN = variables.MIN_QTY * variables.PRICE_SYMBOL;
+            }
+            catch (Exception c)
+            {
+                ErrorText.Add($"ExchangeInfo {c.Message}");
             }
         }
         #endregion
@@ -259,18 +408,6 @@ namespace BinanceAlgorithmLight
         }
         #endregion
 
-        #region - Algorithm -
-
-        private decimal RoundQuantity(decimal quantity)
-        {
-            decimal quantity_final = 0m;
-            if (variables.STEP_SIZE == 0.001m) quantity_final = Math.Round(quantity, 3);
-            else if (variables.STEP_SIZE == 0.01m) quantity_final = Math.Round(quantity, 2);
-            else if (variables.STEP_SIZE == 0.1m) quantity_final = Math.Round(quantity, 1);
-            else if (variables.STEP_SIZE == 1m) quantity_final = Math.Round(quantity, 0);
-            return quantity_final;
-        }
-
         #region - Open order, close order -
 
         public decimal open_quantity;
@@ -278,12 +415,14 @@ namespace BinanceAlgorithmLight
         public decimal price_open_order;
         public decimal opposite_open_quantity;
         public long opposite_open_order_id = 0;
-        public decimal price_opposite_open_order;
-        private void Bet_Click(object sender, RoutedEventArgs e)
+        private void OpenOrders_Click(object sender, RoutedEventArgs e)
+        {
+            OpenOrders();
+        }
+        private void OpenOrders()
         {
             try
             {
-                list_orders.Clear();
                 string symbol = LIST_SYMBOLS.Text;
                 if (variables.START_BET && variables.PRICE_SYMBOL > 0m && variables.LINE_OPEN < 0 && open_order_id == 0 && variables.LONG)
                 {
@@ -295,9 +434,6 @@ namespace BinanceAlgorithmLight
                     if (open_order_id != 0 && opposite_open_order_id != 0)
                     {
                         start = true;
-                        price_open_order = Algorithm.Algorithm.InfoOrderId(socket, symbol, open_order_id);
-                        price_opposite_open_order = Algorithm.Algorithm.InfoOrderId(socket, symbol, opposite_open_order_id);
-                        NewLines(Double.Parse(price_open_order.ToString()));
                     }
                     SoundOpenOrder();
                 }
@@ -310,20 +446,22 @@ namespace BinanceAlgorithmLight
                     if (open_order_id != 0 && opposite_open_order_id != 0)
                     {
                         start = true;
-                        price_open_order = Algorithm.Algorithm.InfoOrderId(socket, symbol, open_order_id);
-                        price_opposite_open_order = Algorithm.Algorithm.InfoOrderId(socket, symbol, opposite_open_order_id);
-                        NewLines(Double.Parse(price_open_order.ToString()));
                     }
                     SoundOpenOrder();
                 }
             }
             catch (Exception c)
             {
-                ErrorText.Add($"Bet_Click {c.Message}");
+                ErrorText.Add($"OpenOrders {c.Message}");
             }
         }
 
         private void CloseOrders_Click(object sender, RoutedEventArgs e)
+        {
+            CloseOrders();
+        }
+
+        private void CloseOrders()
         {
             try
             {
@@ -404,10 +542,23 @@ namespace BinanceAlgorithmLight
             }
             catch (Exception c)
             {
-                ErrorText.Add($"CloseOrders_Click {c.Message}");
+                ErrorText.Add($"CloseOrders {c.Message}");
             }
         }
         #endregion
+
+        #region - Algorithm -
+
+        private decimal RoundQuantity(decimal quantity)
+        {
+            decimal quantity_final = 0m;
+            if (variables.STEP_SIZE == 0.001m) quantity_final = Math.Round(quantity, 3);
+            else if (variables.STEP_SIZE == 0.01m) quantity_final = Math.Round(quantity, 2);
+            else if (variables.STEP_SIZE == 0.1m) quantity_final = Math.Round(quantity, 1);
+            else if (variables.STEP_SIZE == 1m) quantity_final = Math.Round(quantity, 0);
+            return quantity_final;
+        }
+
         private void ReloadSettings()
         {
             open_order_id = 0;
@@ -415,6 +566,7 @@ namespace BinanceAlgorithmLight
             order_id_1 = 0;
             order_id_2 = 0;
             order_id_3 = 0;
+            close_order_id = 0;
             open_quantity = 0m;
             opposite_open_quantity = 0m;
             quantity_1 = 0m;
@@ -432,7 +584,9 @@ namespace BinanceAlgorithmLight
         public long order_id_1 = 0;
         public long order_id_2 = 0;
         public long order_id_3 = 0;
+        public long close_order_id = 0;
         public bool start = false;
+        public bool permission_to_close_orders = false;
         private void StartAlgorithm()
         {
             try
@@ -446,33 +600,24 @@ namespace BinanceAlgorithmLight
                         quantity_1 = RoundQuantity(open_quantity * 0.75m);
                         order_id_1 = Algorithm.Algorithm.Order(socket, symbol, OrderSide.Buy, FuturesOrderType.Market, quantity_1, PositionSide.Long);
                         SoundOpenOrder();
-                        price_order_1 = Algorithm.Algorithm.InfoOrderId(socket, symbol, order_id_1);
-                        decimal average = Math.Round(((open_quantity * price_open_order) + (quantity_1 * price_order_1)) / (quantity_1 + open_quantity), 6);
-                        NewLineSL(Decimal.ToDouble(average));
                     }
                     if (variables.SHORT && order_id_2 == 0 && list_ohlc[list_ohlc.Count - 1].Close > line_open_2_y[0])
                     {
                         quantity_2 = RoundQuantity(open_quantity * 0.6m);
                         order_id_2 = Algorithm.Algorithm.Order(socket, symbol, OrderSide.Buy, FuturesOrderType.Market, quantity_2, PositionSide.Long);
                         SoundOpenOrder();
-                        price_order_2 = Algorithm.Algorithm.InfoOrderId(socket, symbol, order_id_2);
-                        decimal average = Math.Round(((open_quantity * price_open_order) + (quantity_1 * price_order_1) + (quantity_2 * price_order_2)) / (quantity_1 + quantity_2 + open_quantity), 6);
-                        NewLineSL(Decimal.ToDouble(average));
                     }
                     if (variables.SHORT && order_id_3 == 0 && list_ohlc[list_ohlc.Count - 1].Close > line_open_3_y[0])
                     {
                         quantity_3 = RoundQuantity(open_quantity * 0.5m);
                         order_id_3 = Algorithm.Algorithm.Order(socket, symbol, OrderSide.Buy, FuturesOrderType.Market, quantity_3, PositionSide.Long);
                         SoundOpenOrder();
-                        price_order_3 = Algorithm.Algorithm.InfoOrderId(socket, symbol, order_id_3);
-                        decimal average = Math.Round(((open_quantity * price_open_order) + (quantity_1 * price_order_1) + (quantity_2 * price_order_2) + (quantity_3 * price_order_3)) / (quantity_1 + quantity_2 + quantity_3 + open_quantity), 6);
-                        NewLineSL(Decimal.ToDouble(average));
                     }
-                    if (variables.SHORT && list_ohlc[list_ohlc.Count - 1].Close < line_sl_1_y[0])
+                    if (variables.SHORT && list_ohlc[list_ohlc.Count - 1].Close < line_sl_1_y[0] && permission_to_close_orders)
                     {
                         if (order_id_1 != 0 && order_id_2 != 0 && order_id_3 != 0)
                         {
-                            Algorithm.Algorithm.Order(socket, symbol, OrderSide.Sell, FuturesOrderType.Market, quantity_1 + quantity_2 + quantity_3, PositionSide.Long);
+                            close_order_id = Algorithm.Algorithm.Order(socket, symbol, OrderSide.Sell, FuturesOrderType.Market, quantity_1 + quantity_2 + quantity_3, PositionSide.Long);
                             quantity_1 = 0m;
                             order_id_1 = 0;
                             quantity_2 = 0m;
@@ -480,32 +625,24 @@ namespace BinanceAlgorithmLight
                             quantity_3 = 0m;
                             order_id_3 = 0;
                             SoundCloseOrder();
-                            price_open_order = Decimal.Parse(line_sl_1_y[0].ToString());
-                            NewLines(line_sl_1_y[0]);
-                            NewLineSLClear();
                         }
                         else if (order_id_1 != 0 && order_id_2 != 0)
                         {
-                            Algorithm.Algorithm.Order(socket, symbol, OrderSide.Sell, FuturesOrderType.Market, quantity_1 + quantity_2, PositionSide.Long);
+                            close_order_id = Algorithm.Algorithm.Order(socket, symbol, OrderSide.Sell, FuturesOrderType.Market, quantity_1 + quantity_2, PositionSide.Long);
                             quantity_1 = 0m;
                             order_id_1 = 0;
                             quantity_2 = 0m;
                             order_id_2 = 0;
                             SoundCloseOrder();
-                            price_open_order = Decimal.Parse(line_sl_1_y[0].ToString());
-                            NewLines(line_sl_1_y[0]);
-                            NewLineSLClear();
                         }
                         else if (order_id_1 != 0)
                         {
-                            Algorithm.Algorithm.Order(socket, symbol, OrderSide.Sell, FuturesOrderType.Market, quantity_1, PositionSide.Long);
+                            close_order_id = Algorithm.Algorithm.Order(socket, symbol, OrderSide.Sell, FuturesOrderType.Market, quantity_1, PositionSide.Long);
                             quantity_1 = 0m;
                             order_id_1 = 0;
                             SoundCloseOrder();
-                            price_open_order = Decimal.Parse(line_sl_1_y[0].ToString());
-                            NewLines(line_sl_1_y[0]);
-                            NewLineSLClear();
                         }
+                        permission_to_close_orders = false;
                     }
 
                     // Long
@@ -514,33 +651,24 @@ namespace BinanceAlgorithmLight
                         quantity_1 = RoundQuantity(open_quantity * 0.75m);
                         order_id_1 = Algorithm.Algorithm.Order(socket, symbol, OrderSide.Sell, FuturesOrderType.Market, quantity_1, PositionSide.Short);
                         SoundOpenOrder();
-                        price_order_1 = Algorithm.Algorithm.InfoOrderId(socket, symbol, order_id_1);
-                        decimal average = Math.Round(((open_quantity * price_open_order) + (quantity_1 * price_order_1)) / (quantity_1 + open_quantity), 6);
-                        NewLineSL(Decimal.ToDouble(average));
                     }
                     if (variables.LONG && order_id_2 == 0 && list_ohlc[list_ohlc.Count - 1].Close < line_open_2_y[0])
                     {
                         quantity_2 = RoundQuantity(open_quantity * 0.6m);
                         order_id_2 = Algorithm.Algorithm.Order(socket, symbol, OrderSide.Sell, FuturesOrderType.Market, quantity_2, PositionSide.Short);
                         SoundOpenOrder();
-                        price_order_2 = Algorithm.Algorithm.InfoOrderId(socket, symbol, order_id_2);
-                        decimal average = Math.Round(((open_quantity * price_open_order) + (quantity_1 * price_order_1) + (quantity_2 * price_order_2)) / (quantity_1 + quantity_2 + open_quantity), 6);
-                        NewLineSL(Decimal.ToDouble(average));
                     }
                     if (variables.LONG && order_id_3 == 0 && list_ohlc[list_ohlc.Count - 1].Close < line_open_3_y[0])
                     {
                         quantity_3 = RoundQuantity(open_quantity * 0.5m);
                         order_id_3 = Algorithm.Algorithm.Order(socket, symbol, OrderSide.Sell, FuturesOrderType.Market, quantity_3, PositionSide.Short);
                         SoundOpenOrder();
-                        price_order_3 = Algorithm.Algorithm.InfoOrderId(socket, symbol, order_id_3);
-                        decimal average = Math.Round(((open_quantity * price_open_order) + (quantity_1 * price_order_1) + (quantity_2 * price_order_2) + (quantity_3 * price_order_3)) / (quantity_1 + quantity_2 + quantity_3 + open_quantity), 6);
-                        NewLineSL(Decimal.ToDouble(average));
                     }
-                    if (variables.LONG && list_ohlc[list_ohlc.Count - 1].Close > line_sl_1_y[0])
+                    if (variables.LONG && list_ohlc[list_ohlc.Count - 1].Close > line_sl_1_y[0] && permission_to_close_orders)
                     {
                         if (order_id_1 != 0 && order_id_2 != 0 && order_id_3 != 0)
                         {
-                            Algorithm.Algorithm.Order(socket, symbol, OrderSide.Buy, FuturesOrderType.Market, quantity_1 + quantity_2 + quantity_3, PositionSide.Short);
+                            close_order_id = Algorithm.Algorithm.Order(socket, symbol, OrderSide.Buy, FuturesOrderType.Market, quantity_1 + quantity_2 + quantity_3, PositionSide.Short);
                             quantity_1 = 0m;
                             order_id_1 = 0;
                             quantity_2 = 0m;
@@ -548,32 +676,24 @@ namespace BinanceAlgorithmLight
                             quantity_3 = 0m;
                             order_id_3 = 0;
                             SoundCloseOrder();
-                            price_open_order = Decimal.Parse(line_sl_1_y[0].ToString());
-                            NewLines(line_sl_1_y[0]);
-                            NewLineSLClear();
                         }
                         else if (order_id_1 != 0 && order_id_2 != 0)
                         {
-                            Algorithm.Algorithm.Order(socket, symbol, OrderSide.Buy, FuturesOrderType.Market, quantity_1 + quantity_2, PositionSide.Short);
+                            close_order_id = Algorithm.Algorithm.Order(socket, symbol, OrderSide.Buy, FuturesOrderType.Market, quantity_1 + quantity_2, PositionSide.Short);
                             quantity_1 = 0m;
                             order_id_1 = 0;
                             quantity_2 = 0m;
                             order_id_2 = 0;
                             SoundCloseOrder();
-                            price_open_order = Decimal.Parse(line_sl_1_y[0].ToString());
-                            NewLines(line_sl_1_y[0]);
-                            NewLineSLClear();
                         }
                         else if (order_id_1 != 0)
                         {
-                            Algorithm.Algorithm.Order(socket, symbol, OrderSide.Buy, FuturesOrderType.Market, quantity_1, PositionSide.Short);
+                            close_order_id = Algorithm.Algorithm.Order(socket, symbol, OrderSide.Buy, FuturesOrderType.Market, quantity_1, PositionSide.Short);
                             quantity_1 = 0m;
                             order_id_1 = 0;
                             SoundCloseOrder();
-                            price_open_order = Decimal.Parse(line_sl_1_y[0].ToString());
-                            NewLines(line_sl_1_y[0]);
-                            NewLineSLClear();
                         }
+                        permission_to_close_orders = false;
                     }
 
 
@@ -666,47 +786,23 @@ namespace BinanceAlgorithmLight
             decimal sum = 0m;
             foreach (var it in list_orders)
             {
-                if (it.OrderId == opposite_open_order_id || it.OrderId == open_order_id || it.OrderId == order_id_1 || it.OrderId == order_id_2 || it.OrderId == order_id_3)
+                if (it.OrderId == open_order_id || it.OrderId == order_id_1 || it.OrderId == order_id_2 || it.OrderId == order_id_3 || it.OrderId == opposite_open_order_id)
                 {
-                    if (it.OrderId == opposite_open_order_id)
+                    if (it.PositionSide == PositionSide.Short && it.Side == OrderSide.Sell)
                     {
-                        if (variables.SHORT && it.PositionSide == PositionSide.Short && it.Side == OrderSide.Sell)
-                        {
-                            sum += (it.QuantityOfLastFilledTrade * it.AveragePrice) - (it.QuantityOfLastFilledTrade * price);
-                            sum -= it.Fee;
-                        }
-                        else if (variables.LONG && it.PositionSide == PositionSide.Long && it.Side == OrderSide.Buy)
-                        {
-                            sum += (it.QuantityOfLastFilledTrade * price) - (it.QuantityOfLastFilledTrade * it.AveragePrice);
-                            sum -= it.Fee;
-                        }
+                        sum += ((it.QuantityOfLastFilledTrade * it.AveragePrice) - (it.QuantityOfLastFilledTrade * price));
+                        sum -= it.Fee;
                     }
-                    else if (it.OrderId == open_order_id || it.OrderId == order_id_1 || it.OrderId == order_id_2 || it.OrderId == order_id_3)
+                    else if (it.PositionSide == PositionSide.Long && it.Side == OrderSide.Buy)
                     {
-                        if (variables.LONG && it.PositionSide == PositionSide.Short && it.Side == OrderSide.Sell)
-                        {
-                            sum += (it.QuantityOfLastFilledTrade * it.AveragePrice) - (it.QuantityOfLastFilledTrade * price);
-                            sum -= it.Fee;
-                        }
-                        else if (variables.SHORT && it.PositionSide == PositionSide.Long && it.Side == OrderSide.Buy)
-                        {
-                            sum += (it.QuantityOfLastFilledTrade * price) - (it.QuantityOfLastFilledTrade * it.AveragePrice);
-                            sum -= it.Fee;
-                        }
+                        sum += ((it.QuantityOfLastFilledTrade * price) - (it.QuantityOfLastFilledTrade * it.AveragePrice));
+                        sum -= it.Fee;
                     }
                 }
                 else
                 {
-                    if (it.PositionSide == PositionSide.Long && it.Side == OrderSide.Sell)
-                    {
-                        sum += it.RealizedProfit;
-                        sum -= it.Fee;
-                    }
-                    else if (it.PositionSide == PositionSide.Short && it.Side == OrderSide.Buy)
-                    {
-                        sum += it.RealizedProfit;
-                        sum -= it.Fee;
-                    }
+                    sum += it.RealizedProfit;
+                    sum -= it.Fee;
                 }
             }
             return sum;
@@ -886,9 +982,8 @@ namespace BinanceAlgorithmLight
         #region - Load Chart -
         private void LIST_SYMBOLS_DropDownClosed(object sender, EventArgs e)
         {
+            ErrorWatcherChange();
             ReloadChart();
-            var listenKey = socket.futures.Account.StartUserStreamAsync().Result;
-            if (!listenKey.Success) ErrorText.Add($"Failed to start user stream: {listenKey.Error.Message}");
         }
         
         private void ReloadChart()
@@ -901,7 +996,7 @@ namespace BinanceAlgorithmLight
                     LoadingCandlesToDB();
                     if (variables.ONLINE_CHART) {
                         BalanceFuture();
-                        SubscribeToOrder(LIST_SYMBOLS.Text);
+                        SubscribeToOrderThread();
                         SubscribeToKline(); 
                     }
                     NewLines(0);
@@ -909,6 +1004,7 @@ namespace BinanceAlgorithmLight
                     ReloadSettings();
                     list_orders.Clear();
                     LoadingChartOrders();
+                    AverageCandle();
                     plt.Plot.AxisAuto();
                     plt.Render();
                 }
@@ -972,17 +1068,14 @@ namespace BinanceAlgorithmLight
                 if (!result.Success) ErrorText.Add("Error GetKlinesAsync");
                 else
                 {
-                    decimal sum_low_high_price = 0m;
                     if (list_ohlc.Count > 0) list_ohlc.Clear();
                     foreach (var it in result.Data.ToList())
                     {
-                        sum_low_high_price += (it.HighPrice - it.LowPrice);
+                        
                         list_ohlc.Add(new OHLC(Decimal.ToDouble(it.OpenPrice), Decimal.ToDouble(it.HighPrice), Decimal.ToDouble(it.LowPrice), Decimal.ToDouble(it.ClosePrice), it.OpenTime, timeSpan));
                     }
                     variables.PRICE_SYMBOL = result.Data.ToList()[result.Data.ToList().Count - 1].ClosePrice;
-                    variables.AVERAGE_CANDLE = Math.Round((sum_low_high_price / klines_count) / (variables.PRICE_SYMBOL / 1000));
-
-
+                    
                     ExchangeInfo();
                 }
             }
@@ -1178,7 +1271,6 @@ namespace BinanceAlgorithmLight
         {
             try
             {
-                FileSystemWatcher error_watcher = new FileSystemWatcher();
                 error_watcher.Path = ErrorText.Directory();
                 error_watcher.NotifyFilter = NotifyFilters.LastWrite | NotifyFilters.LastAccess | NotifyFilters.FileName | NotifyFilters.DirectoryName;
                 error_watcher.Changed += new FileSystemEventHandler(OnChanged);
@@ -1189,6 +1281,11 @@ namespace BinanceAlgorithmLight
             {
                 ErrorText.Add($"ErrorWatcher {e.Message}");
             }
+        }
+        private void ErrorWatcherChange()
+        {
+            ErrorText.patch = LIST_SYMBOLS.Text;
+            error_watcher.Filter = ErrorText.Patch();
         }
         private void OnChanged(object source, FileSystemEventArgs e)
         {

@@ -1,25 +1,28 @@
 ﻿using System;
 using System.IO;
+using System.Windows.Threading;
 
 namespace BinanceAlgorithmLight.Errors
 {
-    public static class ErrorText
+    public class ErrorText
     {
-        const string patch = "error-log.txt";
-        public static void Add(string error)
+        public string patch = "error-log.txt";
+        public void Add(string error)
         {
             string json = DateTime.Now.ToString() + " - " + error;
-            File.AppendAllLines(@Patch(), json.Split('\n'));
+            File.AppendAllLines(@FullPatch(), json.Split('\n'));
         }
-        public static string Patch()
+        public string Patch()
         {
             return patch;
         }
-        public static string Directory()
+        public string Directory()
         {
-            return System.IO.Path.Combine(Environment.CurrentDirectory, "");
+            string directory = System.IO.Path.Combine(Environment.CurrentDirectory, "log");
+            if (!System.IO.Directory.Exists(directory)) System.IO.Directory.CreateDirectory(directory);
+            return directory;
         }
-        public static string FullPatch()
+        public string FullPatch()
         {
             return Directory() + "/" + Patch();
         }

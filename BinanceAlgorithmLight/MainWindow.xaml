@@ -42,6 +42,16 @@
             <Setter Property="VerticalAlignment" Value="Center" />
             <Setter Property="HorizontalAlignment" Value="Center" />
         </Style>
+        <Style x:Key="styleTextBlockPnl" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="Green" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="HorizontalAlignment" Value="Center" />
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding Path=variables.COLOR_PNL}" Value="True">
+                    <Setter Property="Foreground" Value="Red" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
         <Style x:Key="styleLabelLeft" TargetType="Label">
             <Setter Property="Foreground" Value="White" />
             <Setter Property="VerticalAlignment" Value="Center" />
@@ -198,7 +208,7 @@
                         </Grid.RowDefinitions>
                         <Label Grid.Column="0" Grid.Row="0" Content="Candles:" Style="{DynamicResource styleLabel}"/>
                         <TextBox Grid.Column="1" Grid.Row="0" Text="{Binding Path=COUNT_CANDLES, UpdateSourceTrigger=PropertyChanged}" TextChanged="COUNT_CANDLES_TextChanged" Style="{DynamicResource styleTextBox}"/>
-                        <Label Grid.Column="0" Grid.Row="1" Content="Average:" Style="{DynamicResource styleLabel}"/>
+                        <Button Grid.Column="0" Grid.Row="1" Content="Average:" Click="Average_Click" Style="{DynamicResource styleButton}"/>
                         <TextBlock Grid.Column="1" Grid.Row="1" Text="{Binding Path=variables.AVERAGE_CANDLE}" Style="{DynamicResource styleTextBlock}"/>
                     </Grid>
                     <Grid Grid.Column="4" Grid.Row="0" Style="{DynamicResource styleGridBlack}">
@@ -222,7 +232,12 @@
                         <TextBox Grid.Column="1" Grid.Row="1" Text="{Binding Path=LINE_TP, UpdateSourceTrigger=PropertyChanged}" TextChanged="LINE_TP_TextChanged" Style="{DynamicResource styleTextBox}"/>
                     </Grid>
                     <Grid Grid.Column="2" Grid.Row="1" Style="{DynamicResource styleGridBlack}">
-                        <Button Content="Bet" Click="Bet_Click" Style="{DynamicResource styleButton}"/>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition/>
+                            <ColumnDefinition/>
+                        </Grid.ColumnDefinitions>
+                        <Button Grid.Column="0" Content="Open orders" Click="OpenOrders_Click" Style="{DynamicResource styleButton}"/>
+                        <Button Grid.Column="1" Content="Close orders" Click="CloseOrders_Click" Style="{DynamicResource styleButton}"/>
                     </Grid>
 
                     <Grid Grid.Column="3" Grid.Row="1" Style="{DynamicResource styleGridBlack}">
@@ -237,7 +252,7 @@
                         <Label Grid.Column="0" Grid.Row="0" Content="Balance:" Style="{DynamicResource styleLabel}"/>
                         <TextBlock Grid.Column="1" Grid.Row="0" Text="{Binding Path=variables.ACCOUNT_BALANCE}" Style="{DynamicResource styleTextBlock}"/>
                         <Label Grid.Column="0" Grid.Row="1" Content="Pnl:" Style="{DynamicResource styleLabel}"/>
-                        <TextBlock Grid.Column="1" Grid.Row="1" Text="{Binding Path=variables.PNL}" Style="{DynamicResource styleTextBlock}"/>
+                        <TextBlock Grid.Column="1" Grid.Row="1" Text="{Binding Path=variables.PNL}" Style="{DynamicResource styleTextBlockPnl}"/>
                     </Grid>
                     <Grid Grid.Column="4" Grid.Row="1" Style="{DynamicResource styleGridBlack}">
                         <Button Content="Disconnect" Click="STOP_ASYNC_Click" Style="{DynamicResource styleButton}"/>
@@ -259,7 +274,17 @@
                         <TextBox Grid.Column="1" Text="{Binding Path=variables.USDT_BET, UpdateSourceTrigger=PropertyChanged}" ToolTip="{Binding Path=variables.USDT_MIN_TOOL_TIP}" Style="{DynamicResource styleTextBoxUsdt}"/>
                     </Grid>
                     <Grid Grid.Column="2" Grid.Row="2" Style="{DynamicResource styleGridBlack}">
-                        <Button Content="Close orders" Click="CloseOrders_Click" Style="{DynamicResource styleButton}"/>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition/>
+                            <ColumnDefinition/>
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition/>
+                            <RowDefinition/>
+                        </Grid.RowDefinitions>
+                        <CheckBox Grid.Column="0" Grid.Row="0" Grid.ColumnSpan="2" Content="Restart" IsChecked="{Binding Path=variables.RESTART_ALGORITHM}" Style="{DynamicResource styleCheckBox}"/>
+                        <CheckBox Grid.Column="0" Grid.Row="1" Content="Expected pnl:" IsChecked="{Binding Path=variables.EXPECTED_PNL_CHECK}" Style="{DynamicResource styleCheckBox}"/>
+                        <TextBox Grid.Column="1" Grid.Row="1" Text="{Binding Path=variables.EXPECTED_PNL, UpdateSourceTrigger=PropertyChanged}" Style="{DynamicResource styleTextBox}"/>
                     </Grid>
                     <Grid Grid.Column="3" Grid.Row="2" Style="{DynamicResource styleGridBlack}">
                         <Grid.ColumnDefinitions>

@@ -161,8 +161,8 @@ namespace BinanceAlgorithmLight.Model
                 OnPropertyChanged("LINE_OPEN");
             }
         }
-        private decimal _AVERAGE_CANDLE;
-        public decimal AVERAGE_CANDLE
+        private double _AVERAGE_CANDLE;
+        public double AVERAGE_CANDLE
         {
             get { return _AVERAGE_CANDLE; }
             set
@@ -178,7 +178,50 @@ namespace BinanceAlgorithmLight.Model
             set
             {
                 _PNL = value;
+                if (value < 0m) COLOR_PNL = true;
+                else COLOR_PNL = false;
                 OnPropertyChanged("PNL");
+            }
+        }
+        private bool _COLOR_PNL;
+        public bool COLOR_PNL
+        {
+            get { return _COLOR_PNL; }
+            set
+            {
+                _COLOR_PNL = value;
+                OnPropertyChanged("COLOR_PNL");
+            }
+        }
+        private decimal _EXPECTED_PNL = 10.5m;
+        public decimal EXPECTED_PNL
+        {
+            get { return _EXPECTED_PNL; }
+            set
+            {
+                EXPECTED_PNL_CHECK = false;
+                _EXPECTED_PNL = value;
+                OnPropertyChanged("EXPECTED_PNL");
+            }
+        }
+
+        private bool _EXPECTED_PNL_CHECK = false;
+        public bool EXPECTED_PNL_CHECK
+        {
+            get { return _EXPECTED_PNL_CHECK; }
+            set
+            {
+                if(value == true && _EXPECTED_PNL > 0m)
+                {
+                    _EXPECTED_PNL_CHECK = value;
+                    OnPropertyChanged("EXPECTED_PNL_CHECK");
+                }
+                else if (value == false)
+                {
+                    if (_RESTART_ALGORITHM) RESTART_ALGORITHM = false;
+                    _EXPECTED_PNL_CHECK = value;
+                    OnPropertyChanged("EXPECTED_PNL_CHECK");
+                }
             }
         }
         private decimal _ACCOUNT_BALANCE;
@@ -191,6 +234,19 @@ namespace BinanceAlgorithmLight.Model
                 OnPropertyChanged("ACCOUNT_BALANCE");
             }
         }
+
+        private bool _RESTART_ALGORITHM = false;
+        public bool RESTART_ALGORITHM
+        {
+            get { return _RESTART_ALGORITHM; }
+            set
+            {
+                if(value == true) if (!_EXPECTED_PNL_CHECK) EXPECTED_PNL_CHECK = true;
+                _RESTART_ALGORITHM = value;
+                OnPropertyChanged("RESTART_ALGORITHM");
+            }
+        }
+
         public event PropertyChangedEventHandler PropertyChanged;
         public void OnPropertyChanged([CallerMemberName] string prop = "")
         {
