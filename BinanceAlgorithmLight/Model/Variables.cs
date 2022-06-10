@@ -9,6 +9,11 @@ namespace BinanceAlgorithmLight.Model
 {
     public class Variables : INotifyPropertyChanged
     {
+        public event PropertyChangedEventHandler PropertyChanged;
+        public void OnPropertyChanged([CallerMemberName] string prop = "")
+        {
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(prop));
+        }
         private decimal _PRICE_SYMBOL;
         public decimal PRICE_SYMBOL
         {
@@ -246,11 +251,38 @@ namespace BinanceAlgorithmLight.Model
                 OnPropertyChanged("RESTART_ALGORITHM");
             }
         }
-
-        public event PropertyChangedEventHandler PropertyChanged;
-        public void OnPropertyChanged([CallerMemberName] string prop = "")
+        private int _COUNT_ORDERS;
+        public int COUNT_ORDERS
         {
-            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(prop));
+            get { return _COUNT_ORDERS; }
+            set
+            {
+                _COUNT_ORDERS = value;
+                OnPropertyChanged("COUNT_ORDERS");
+            }
+        }
+        private decimal _SUM_PROFIT_ORDERS;
+        public decimal SUM_PROFIT_ORDERS
+        {
+            get { return _SUM_PROFIT_ORDERS; }
+            set
+            {
+                _SUM_PROFIT_ORDERS = value;
+                if (value > 0m) COLOR_SUM_PROFIT_ORDERS = "Green";
+                else if (value < 0m) COLOR_SUM_PROFIT_ORDERS = "Red";
+                else COLOR_SUM_PROFIT_ORDERS = "White";
+                OnPropertyChanged("SUM_PROFIT_ORDERS");
+            }
+        }
+        private string _COLOR_SUM_PROFIT_ORDERS = "White";
+        public string COLOR_SUM_PROFIT_ORDERS
+        {
+            get { return _COLOR_SUM_PROFIT_ORDERS; }
+            set
+            {
+                _COLOR_SUM_PROFIT_ORDERS = value;
+                OnPropertyChanged("COLOR_SUM_PROFIT_ORDERS");
+            }
         }
     }
 }

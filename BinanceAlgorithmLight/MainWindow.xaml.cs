@@ -59,6 +59,7 @@ namespace BinanceAlgorithmLight
         {
             InitializeComponent();
             Loaded += MainWindow_Loaded;
+            HISTORY_ORDER.ItemsSource = history_list_orders;
         }
 
         #region - Main Loaded -
@@ -70,7 +71,6 @@ namespace BinanceAlgorithmLight
             INTERVAL_TIME.ItemsSource = IntervalCandles.Intervals();
             INTERVAL_TIME.SelectedIndex = 0;
             LIST_SYMBOLS.ItemsSource = list_sumbols_name;
-            HISTORY_ORDER.ItemsSource = history_list_orders;
             EXIT_GRID.Visibility = Visibility.Hidden;
             LOGIN_GRID.Visibility = Visibility.Visible;
             this.DataContext = this;
@@ -82,23 +82,33 @@ namespace BinanceAlgorithmLight
         {
             try
             {
-                decimal sum_total = 0m;
-                int count_orders = 0;
-                foreach (var it in history_list_orders)
-                {
-                    sum_total += it.RealizedProfit;
-                    sum_total -= it.Fee;
-                    count_orders++;
-                }
-                COUNT_ORDERS.Content = count_orders;
-                SUM_TOTAL.Content = sum_total;
-                if (sum_total > 0) SUM_TOTAL.Foreground = System.Windows.Media.Brushes.Green;
-                else if (sum_total < 0) SUM_TOTAL.Foreground = System.Windows.Media.Brushes.Red;
                 HISTORY_ORDER.Items.Refresh();
             }
             catch (Exception c)
             {
                 ErrorText.Add($"TAB_CONTROL_MouseLeftButtonUp {c.Message}");
+            }
+        }
+        private void TradeHistory()
+        {
+            try
+            {
+                decimal sum_profit_orders = 0m;
+                int count_orders = 0;
+                variables.SUM_PROFIT_ORDERS = 0m;
+                variables.COUNT_ORDERS = 0;
+                foreach (var it in history_list_orders)
+                {
+                    sum_profit_orders += it.RealizedProfit;
+                    sum_profit_orders -= it.Fee;
+                    count_orders++;
+                }
+                variables.SUM_PROFIT_ORDERS = sum_profit_orders;
+                variables.COUNT_ORDERS = count_orders;
+            }
+            catch (Exception c)
+            {
+                ErrorText.Add($"TradeHistory {c.Message}");
             }
         }
         #endregion
@@ -232,6 +242,7 @@ namespace BinanceAlgorithmLight
                                 history_list_orders.Add(onOrderUpdate.Data.UpdateData);
                                 PriceOrder(onOrderUpdate.Data.UpdateData);
                                 LoadingChartOrders();
+                                TradeHistory();
                             }));
                         }
                     },

@@ -128,6 +128,7 @@
                     <Grid.RowDefinitions>
                         <RowDefinition Height="30*"/>
                         <RowDefinition Height="100*"/>
+                        <RowDefinition Height="auto"/>
                     </Grid.RowDefinitions>
                     <Grid>
                         <Grid Grid.Column="0" Grid.Row="0">
@@ -310,64 +311,32 @@
                     <Grid Grid.Column="0" Grid.Row="1" Grid.ColumnSpan="2" Style="{DynamicResource styleGrid}">
                         <WpfPlot Name="plt"/>
                     </Grid>
-                </Grid>
-            </TabItem>
-            <TabItem Header="Trade history"  MouseLeftButtonUp="TAB_CONTROL_MouseLeftButtonUp">
-                <Grid>
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="1*"/>
-                        <RowDefinition Height="auto"/>
-                    </Grid.RowDefinitions>
-                    <Grid Grid.Row="0">
-                        <ListView Grid.Column="1" Grid.Row="0" Foreground="White" Background="Black" x:Name="HISTORY_ORDER">
-                            <ListView.View >
-                                <GridView>
-                                    <GridViewColumn DisplayMemberBinding="{Binding date}" Width="140" Header="date"/>
-                                    <GridViewColumn DisplayMemberBinding="{Binding symbol}" Width="100" Header="symbol"/>
-                                    <GridViewColumn DisplayMemberBinding="{Binding open_price}" Width="100" Header="open price"/>
-                                    <GridViewColumn DisplayMemberBinding="{Binding close_price}" Width="100" Header="close price"/>
-                                    <GridViewColumn DisplayMemberBinding="{Binding qyantity}" Width="100" Header="qyantity"/>
-                                    <GridViewColumn Width="100" Header="side">
-                                        <GridViewColumn.CellTemplate>
-                                            <DataTemplate>
-                                                <TextBlock Text="{Binding Path=side}" Foreground="{Binding Path=side_color}" />
-                                            </DataTemplate>
-                                        </GridViewColumn.CellTemplate>
-                                    </GridViewColumn>
-                                    <GridViewColumn Width="100" Header="profit">
-                                        <GridViewColumn.CellTemplate>
-                                            <DataTemplate>
-                                                <TextBlock Text="{Binding Path=profit}" Foreground="{Binding Path=profit_color}" />
-                                            </DataTemplate>
-                                        </GridViewColumn.CellTemplate>
-                                    </GridViewColumn>
-                                    <GridViewColumn Width="100" Header="profit (%)">
-                                        <GridViewColumn.CellTemplate>
-                                            <DataTemplate>
-                                                <TextBlock Text="{Binding Path=profit_percent}" Foreground="{Binding Path=profit_percent_color}" />
-                                            </DataTemplate>
-                                        </GridViewColumn.CellTemplate>
-                                    </GridViewColumn>
-                                    <GridViewColumn DisplayMemberBinding="{Binding commission}" Width="140" Header="commission"/>
-                                    <GridViewColumn Width="100" Header="total">
-                                        <GridViewColumn.CellTemplate>
-                                            <DataTemplate>
-                                                <TextBlock Text="{Binding Path=total}" Foreground="{Binding Path=total_color}" />
-                                            </DataTemplate>
-                                        </GridViewColumn.CellTemplate>
-                                    </GridViewColumn>
-                                </GridView>
-                            </ListView.View>
-                        </ListView>
-                    </Grid>
-                    <Grid Grid.Row="1" Style="{DynamicResource styleGridBlack}">
-                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+
+                    <Grid Grid.Row="3" Grid.Column="0" Grid.ColumnSpan="2" Style="{DynamicResource styleGridBlack}">
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="20 0">
                             <Label Content="Orders:" Style="{DynamicResource styleLabel}"/>
-                            <Label x:Name="COUNT_ORDERS" Style="{DynamicResource styleLabel}"/>
+                            <TextBlock Text="{Binding Path=variables.COUNT_ORDERS}" Style="{DynamicResource styleTextBlock}"/>
                             <Label Content="Total:" Style="{DynamicResource styleLabel}"/>
-                            <Label x:Name="SUM_TOTAL" Style="{DynamicResource styleLabel}"/>
+                            <TextBlock Text="{Binding Path=variables.SUM_PROFIT_ORDERS}" Foreground="{Binding Path=variables.COLOR_SUM_PROFIT_ORDERS}" Style="{DynamicResource styleTextBlock}"/>
                         </StackPanel>
                     </Grid>
+                </Grid>
+            </TabItem>
+            <TabItem Header="Trade history" MouseLeftButtonDown="TAB_CONTROL_MouseLeftButtonUp">
+                <Grid>
+                    <ListView Grid.Column="1" Grid.Row="0" Foreground="White" Background="Black" x:Name="HISTORY_ORDER">
+                        <ListView.View >
+                            <GridView>
+                                <GridViewColumn DisplayMemberBinding="{Binding UpdateTime}" Width="140" Header="date"/>
+                                <GridViewColumn DisplayMemberBinding="{Binding Symbol}" Width="100" Header="symbol"/>
+                                <GridViewColumn DisplayMemberBinding="{Binding AveragePrice}" Width="100" Header="price"/>
+                                <GridViewColumn DisplayMemberBinding="{Binding QuantityOfLastFilledTrade}" Width="100" Header="qyantity"/>
+                                <GridViewColumn DisplayMemberBinding="{Binding Side}" Width="100" Header="side"/>
+                                <GridViewColumn DisplayMemberBinding="{Binding RealizedProfit}" Width="100" Header="profit"/>
+                                <GridViewColumn DisplayMemberBinding="{Binding Fee}" Width="100" Header="commission"/>
+                            </GridView>
+                        </ListView.View>
+                    </ListView>
                 </Grid>
             </TabItem>
         </TabControl>
