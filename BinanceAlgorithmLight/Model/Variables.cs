@@ -1,5 +1,6 @@
 ﻿using Binance.Net.Objects.Models.Futures.Socket;
 using BinanceAlgorithmLight.Errors;
+using BinanceAlgorithmLight.Objects;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
@@ -282,6 +283,40 @@ namespace BinanceAlgorithmLight.Model
             {
                 _COLOR_SUM_PROFIT_ORDERS = value;
                 OnPropertyChanged("COLOR_SUM_PROFIT_ORDERS");
+            }
+        }
+        private bool _CONNECT_BINANCE = false;
+        public bool CONNECT_BINANCE
+        {
+            get { return _CONNECT_BINANCE; }
+            set
+            {
+                _CONNECT_BINANCE = value;
+                OnPropertyChanged("CONNECT_BINANCE");
+            }
+        }
+        private int _CONNECT_BINANCE_SECONDS = 10;
+        public int CONNECT_BINANCE_SECONDS
+        {
+            get { return _CONNECT_BINANCE_SECONDS; }
+            set
+            {
+                if(value > 0)
+                {
+                    _CONNECT_BINANCE_SECONDS = value;
+                    CONNECT_BINANCE_TOOL_TIP = $"after {value} seconds reconnect to binance";
+                    OnPropertyChanged("CONNECT_BINANCE_SECONDS");
+                }
+            }
+        }
+        private string _CONNECT_BINANCE_TOOL_TIP = "after 10 seconds reconnect to binance";
+        public string CONNECT_BINANCE_TOOL_TIP
+        {
+            get { return _CONNECT_BINANCE_TOOL_TIP; }
+            set
+            {
+                _CONNECT_BINANCE_TOOL_TIP = value;
+                OnPropertyChanged("CONNECT_BINANCE_TOOL_TIP");
             }
         }
     }

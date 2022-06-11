@@ -15,21 +15,5 @@ namespace BinanceAlgorithmLight.Algorithm
             var result = socket.futures.Trading.PlaceOrderAsync(symbol: symbol, side: side, type: type, quantity: quantity, positionSide: position_side);
             return result.Result.Data.Id;
         }
-        public static decimal InfoOrderId(Socket socket, string symbol, long orderId)
-        {
-            var result = socket.futures.Trading.GetOrdersAsync(symbol: symbol, orderId: orderId).Result;
-            if (!result.Success)
-            {
-                return InfoOrderId(socket, symbol, orderId);
-            }
-            else
-            {
-                foreach (var it in result.Data.ToList())
-                {
-                    if (it.AvgPrice > 0m) return it.AvgPrice;
-                }
-                return InfoOrderId(socket, symbol, orderId);
-            }
-        }
     }
 }

@@ -7,6 +7,7 @@ using BinanceAlgorithmLight.ConnectDB;
 using BinanceAlgorithmLight.Errors;
 using BinanceAlgorithmLight.Interval;
 using BinanceAlgorithmLight.Model;
+using BinanceAlgorithmLight.Objects;
 using Newtonsoft.Json;
 using ScottPlot;
 using ScottPlot.Plottable;
@@ -29,7 +30,7 @@ namespace BinanceAlgorithmLight
     {
         public FileSystemWatcher error_watcher = new FileSystemWatcher();
         public ErrorText ErrorText = new ErrorText(); 
-        public List<BinanceFuturesStreamOrderUpdateData> history_list_orders = new List<BinanceFuturesStreamOrderUpdateData>();
+        public List<OrderHistory> history_list_orders { get; set; } = new List<OrderHistory>();
         public List<BinanceFuturesStreamOrderUpdateData> list_orders = new List<BinanceFuturesStreamOrderUpdateData>();
         public Variables variables { get; set; } = new Variables();
         public string API_KEY { get; set; } = "";
@@ -55,11 +56,11 @@ namespace BinanceAlgorithmLight
         public ScatterPlot order_long_close_plot;
         public ScatterPlot order_short_open_plot;
         public ScatterPlot order_short_close_plot;
+        public DispatcherTimer timer = new DispatcherTimer();
         public MainWindow()
         {
             InitializeComponent();
             Loaded += MainWindow_Loaded;
-            HISTORY_ORDER.ItemsSource = history_list_orders;
         }
 
         #region - Main Loaded -
@@ -73,22 +74,28 @@ namespace BinanceAlgorithmLight
             LIST_SYMBOLS.ItemsSource = list_sumbols_name;
             EXIT_GRID.Visibility = Visibility.Hidden;
             LOGIN_GRID.Visibility = Visibility.Visible;
+            timer.Interval = TimeSpan.FromSeconds(10);
+            timer.Tick += timer_Tick;
             this.DataContext = this;
         }
         #endregion
 
-        #region - Trede History -
-        private void TAB_CONTROL_MouseLeftButtonUp(object sender, MouseButtonEventArgs e)
+        #region - Timer Reconnect Binance -
+        void timer_Tick(object sender, EventArgs e)
         {
-            try
+            if (!variables.CONNECT_BINANCE)
             {
-                HISTORY_ORDER.Items.Refresh();
+                if (variables.ONLINE_CHART)
+                {
+                    SubscribeToOrderThread();
+                    SubscribeToKline();
+                }
             }
-            catch (Exception c)
-            {
-                ErrorText.Add($"TAB_CONTROL_MouseLeftButtonUp {c.Message}");
-            }
+            variables.CONNECT_BINANCE = false;
         }
+        #endregion
+
+        #region - Trade history -
         private void TradeHistory()
         {
             try
@@ -190,7 +197,6 @@ namespace BinanceAlgorithmLight
                 NewLines(line_sl_1_y[0]);
                 NewLineSLClear();
             }
-            
         }
         public void SubscribeToOrderThread()
         {
@@ -239,7 +245,8 @@ namespace BinanceAlgorithmLight
                             {
                                 if (onOrderUpdate.Data.UpdateData.OrderId == open_order_id && !CheckOrderIdToListOrders() || onOrderUpdate.Data.UpdateData.OrderId == opposite_open_order_id && !CheckOrderIdToListOrders()) ClearListOrders();
                                 list_orders.Add(onOrderUpdate.Data.UpdateData);
-                                history_list_orders.Add(onOrderUpdate.Data.UpdateData);
+                                history_list_orders.Add(new OrderHistory(onOrderUpdate.Data.UpdateData));
+                                HISTORY_LIST.Items.Refresh();
                                 PriceOrder(onOrderUpdate.Data.UpdateData);
                                 LoadingChartOrders();
                                 TradeHistory();
@@ -316,6 +323,7 @@ namespace BinanceAlgorithmLight
                 {
                     Dispatcher.Invoke(new Action(() =>
                     {
+                        if (!variables.CONNECT_BINANCE) variables.CONNECT_BINANCE = true;
                         variables.PRICE_SYMBOL = Message.Data.Data.ClosePrice;
                         UpdateListOHLC(new OHLC(Decimal.ToDouble(Message.Data.Data.OpenPrice), Decimal.ToDouble(Message.Data.Data.HighPrice), Decimal.ToDouble(Message.Data.Data.LowPrice), Decimal.ToDouble(Message.Data.Data.ClosePrice), Message.Data.Data.OpenTime, timeSpan));
                         LoadingChart();
@@ -1040,11 +1048,14 @@ namespace BinanceAlgorithmLight
                 {
                     StopAsync();
                     LoadingCandlesToDB();
-                    if (variables.ONLINE_CHART) {
+                    if (variables.ONLINE_CHART)
+                    {
                         BalanceFuture();
                         SubscribeToOrderThread();
-                        SubscribeToKline(); 
+                        SubscribeToKline();
+                        if (!timer.IsEnabled) timer.Start();
                     }
+                    else { if (timer.IsEnabled) timer.Stop(); StopAsync(); variables.CONNECT_BINANCE = false; }
                     NewLines(0);
                     LoadingChart();
                     ReloadSettings();
@@ -1306,6 +1317,7 @@ namespace BinanceAlgorithmLight
         {
             EXIT_GRID.Visibility = Visibility.Hidden;
             LOGIN_GRID.Visibility = Visibility.Visible;
+            StopAsync();
             socket = null;
             list_sumbols_name.Clear();
         }

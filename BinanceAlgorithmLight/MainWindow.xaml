@@ -21,6 +21,16 @@
             <Setter Property="HorizontalAlignment" Value="Center" />
             <Setter Property="VerticalAlignment" Value="Center" />
         </Style>
+        <Style x:Key="styleCheckBoxOnline" TargetType="CheckBox">
+            <Setter Property="HorizontalAlignment" Value="Center" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="Foreground" Value="Red" />
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding Path=variables.CONNECT_BINANCE}" Value="True">
+                    <Setter Property="Foreground" Value="Green" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
         <Style x:Key="styleGridMain" TargetType="Grid">
             <Setter Property="Background" Value="Black" />
         </Style>
@@ -219,7 +229,12 @@
                                     <Button Content="Exit" Click="Exit_Click" Style="{DynamicResource styleButton}"/>
                                 </Grid>
                                 <Grid Grid.Column="0" Grid.Row="1" Style="{DynamicResource styleGridBlack}">
-                                    <CheckBox Content="Online" IsChecked="{Binding Path=variables.ONLINE_CHART}" Style="{DynamicResource styleCheckBox}"/>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition/>
+                                        <ColumnDefinition/>
+                                    </Grid.ColumnDefinitions>
+                                    <CheckBox Grid.Column="0" Content="Online" IsChecked="{Binding Path=variables.ONLINE_CHART}" Style="{DynamicResource styleCheckBoxOnline}"/>
+                                    <TextBox Grid.Column="1" Text="{Binding Path=variables.CONNECT_BINANCE_SECONDS, UpdateSourceTrigger=PropertyChanged}" ToolTip="{Binding Path=variables.CONNECT_BINANCE_TOOL_TIP}" Style="{DynamicResource styleTextBox}"/>
                                 </Grid>
                                 <Grid Grid.Column="1" Grid.Row="1" Style="{DynamicResource styleGridBlack}">
                                     <Grid.ColumnDefinitions>
@@ -259,7 +274,12 @@
                                     <TextBlock Grid.Column="1" Grid.Row="1" Text="{Binding Path=variables.PNL}" Style="{DynamicResource styleTextBlockPnl}"/>
                                 </Grid>
                                 <Grid Grid.Column="4" Grid.Row="1" Style="{DynamicResource styleGridBlack}">
-                                    <Button Content="Disconnect" Click="STOP_ASYNC_Click" Style="{DynamicResource styleButton}"/>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition/>
+                                        <ColumnDefinition/>
+                                    </Grid.ColumnDefinitions>
+                                    <Button Grid.Column="0" Content="Disconnect" Click="STOP_ASYNC_Click" Style="{DynamicResource styleButton}"/>
+                                    <Button Grid.Column="1" Content="Connect" Click="START_ASYNC_Click" Style="{DynamicResource styleButton}"/>
                                 </Grid>
                                 <Grid Grid.Column="0" Grid.Row="2" Style="{DynamicResource styleGridBlack}">
                                     <Grid.ColumnDefinitions>
@@ -299,7 +319,7 @@
                                     <TextBlock Grid.Column="1" Text="{Binding Path=variables.PRICE_SYMBOL}" Style="{DynamicResource styleTextBlock}"/>
                                 </Grid>
                                 <Grid Grid.Column="4" Grid.Row="2" Style="{DynamicResource styleGridBlack}">
-                                    <Button Content="Connect" Click="START_ASYNC_Click" Style="{DynamicResource styleButton}"/>
+                                    <!--<Rectangle Fill="Red" Width="14" Height="14" RadiusX="14" RadiusY="14"/>-->
                                 </Grid>
                             </Grid>
                         </Grid>
@@ -320,20 +340,47 @@
                             <TextBlock Text="{Binding Path=variables.SUM_PROFIT_ORDERS}" Foreground="{Binding Path=variables.COLOR_SUM_PROFIT_ORDERS}" Style="{DynamicResource styleTextBlock}"/>
                         </StackPanel>
                     </Grid>
+                    
                 </Grid>
             </TabItem>
-            <TabItem Header="Trade history" MouseLeftButtonDown="TAB_CONTROL_MouseLeftButtonUp">
+            <TabItem Header="Trade history">
                 <Grid>
-                    <ListView Grid.Column="1" Grid.Row="0" Foreground="White" Background="Black" x:Name="HISTORY_ORDER">
+                    <ListView Grid.Column="1" Grid.Row="0" Foreground="White" Background="Black" x:Name="HISTORY_LIST" ItemsSource="{Binding Path=history_list_orders}">
                         <ListView.View >
                             <GridView>
                                 <GridViewColumn DisplayMemberBinding="{Binding UpdateTime}" Width="140" Header="date"/>
                                 <GridViewColumn DisplayMemberBinding="{Binding Symbol}" Width="100" Header="symbol"/>
                                 <GridViewColumn DisplayMemberBinding="{Binding AveragePrice}" Width="100" Header="price"/>
                                 <GridViewColumn DisplayMemberBinding="{Binding QuantityOfLastFilledTrade}" Width="100" Header="qyantity"/>
-                                <GridViewColumn DisplayMemberBinding="{Binding Side}" Width="100" Header="side"/>
-                                <GridViewColumn DisplayMemberBinding="{Binding RealizedProfit}" Width="100" Header="profit"/>
+                                <GridViewColumn Width="100" Header="position">
+                                    <GridViewColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <TextBlock Text="{Binding Path=PositionSide}" Foreground="{Binding Path=ColorPositionSide}" />
+                                        </DataTemplate>
+                                    </GridViewColumn.CellTemplate>
+                                </GridViewColumn>
+                                <GridViewColumn Width="100" Header="trade">
+                                    <GridViewColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <TextBlock Text="{Binding Path=Trade}" Foreground="{Binding Path=ColorTrade}" />
+                                        </DataTemplate>
+                                    </GridViewColumn.CellTemplate>
+                                </GridViewColumn>
+                                <GridViewColumn Width="100" Header="profit">
+                                    <GridViewColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <TextBlock Text="{Binding Path=RealizedProfit}" Foreground="{Binding Path=ColorRealizedProfit}" />
+                                        </DataTemplate>
+                                    </GridViewColumn.CellTemplate>
+                                </GridViewColumn>
                                 <GridViewColumn DisplayMemberBinding="{Binding Fee}" Width="100" Header="commission"/>
+                                <GridViewColumn Width="100" Header="total">
+                                    <GridViewColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <TextBlock Text="{Binding Path=Total}" Foreground="{Binding Path=ColorTotal}" />
+                                        </DataTemplate>
+                                    </GridViewColumn.CellTemplate>
+                                </GridViewColumn>
                             </GridView>
                         </ListView.View>
                     </ListView>
