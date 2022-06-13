@@ -18,9 +18,9 @@ using System.IO;
 using System.Linq;
 using System.Media;
 using System.Threading;
+using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Input;
 using System.Windows.Threading;
 using Color = System.Drawing.Color;
 
@@ -57,11 +57,20 @@ namespace BinanceAlgorithmLight
         public ScatterPlot order_short_open_plot;
         public ScatterPlot order_short_close_plot;
         public DispatcherTimer timer = new DispatcherTimer();
+
         public MainWindow()
         {
             InitializeComponent();
             Loaded += MainWindow_Loaded;
+            Closed += MainWindow_Closed;
         }
+
+        #region - Main Closed -
+        private void MainWindow_Closed(object sender, EventArgs e)
+        {
+            variables.START_PING = false;
+        }
+        #endregion
 
         #region - Main Loaded -
         private void MainWindow_Loaded(object sender, RoutedEventArgs e)
@@ -74,81 +83,176 @@ namespace BinanceAlgorithmLight
             LIST_SYMBOLS.ItemsSource = list_sumbols_name;
             EXIT_GRID.Visibility = Visibility.Hidden;
             LOGIN_GRID.Visibility = Visibility.Visible;
-            timer.Interval = TimeSpan.FromSeconds(10);
-            timer.Tick += timer_Tick;
             this.DataContext = this;
+            timer.Interval = TimeSpan.FromSeconds(10);
+            timer.Tick += Timer_Tick;
+        }
+        #endregion
+
+        #region - Ping (Thread) -
+        private void Ping()
+        {
+            try
+            {
+                variables.START_PING = true;
+                new Thread(() => { ThreadPing(); }).Start();
+            }
+            catch (Exception c)
+            {
+                Error($"Ping {c.Message}");
+            }
+        }
+
+        private void ThreadPing()
+        {
+            try
+            {
+                while(variables.START_PING)
+                {
+                    if (!PingAsync().Result) {
+                        Ping();
+                        break; 
+                    }
+                }
+            }
+            catch (Exception c)
+            {
+                Error($"ThreadPing {c.Message}");
+            }
+        }
+        private async Task<bool> PingAsync()
+        {
+            try
+            {
+                var result = await socket.futures.ExchangeData.PingAsync();
+                if (!result.Success) { 
+                    variables.PING = 100000; 
+                    return false; 
+                }
+                else
+                {
+                    variables.PING = result.Data;
+                    return true;
+                }
+            }
+            catch (Exception c)
+            {
+                Error($"PingAsync {c.Message}");
+                return false;
+            }
         }
         #endregion
 
         #region - Timer Reconnect Binance -
-        void timer_Tick(object sender, EventArgs e)
-        {
-            if (!variables.CONNECT_BINANCE)
-            {
-                if (variables.ONLINE_CHART)
-                {
-                    SubscribeToOrderThread();
-                    SubscribeToKline();
-                }
-            }
-            variables.CONNECT_BINANCE = false;
-        }
-        #endregion
-
-        #region - Trade history -
-        private void TradeHistory()
+        private void Timer_TextChanged(object sender, TextChangedEventArgs e)
         {
             try
             {
-                decimal sum_profit_orders = 0m;
-                int count_orders = 0;
-                variables.SUM_PROFIT_ORDERS = 0m;
-                variables.COUNT_ORDERS = 0;
-                foreach (var it in history_list_orders)
+                if (variables.CONNECT_BINANCE_SECONDS > 0 && variables.START_PING)
                 {
-                    sum_profit_orders += it.RealizedProfit;
-                    sum_profit_orders -= it.Fee;
-                    count_orders++;
+                    timer.Stop();
+                    timer.Interval = TimeSpan.FromSeconds(variables.CONNECT_BINANCE_SECONDS);
+                    timer.Start();
                 }
-                variables.SUM_PROFIT_ORDERS = sum_profit_orders;
-                variables.COUNT_ORDERS = count_orders;
             }
             catch (Exception c)
             {
-                ErrorText.Add($"TradeHistory {c.Message}");
+                Error($"Timer_TextChanged {c.Message}");
+            }
+        }
+        void Timer_Tick(object sender, EventArgs e)
+        {
+            try
+            {
+                if (!variables.CONNECT_BINANCE && variables.ONLINE_CHART || !variables.CHECK_SUBSCRIBE_TO_ORDER && variables.ONLINE_CHART)
+                {
+                    variables.CHECK_SUBSCRIBE_TO_ORDER = true;
+                    UnsubscribeAllAsync();
+                    SubscribeToKline(); 
+                    SubscribeToOrderThread();
+                }
+                variables.CONNECT_BINANCE = false;
+                if (!variables.START_PING) Ping();
+            }
+            catch (Exception c)
+            {
+                Error($"Timer_Tick {c.Message}");
             }
         }
         #endregion
 
-        #region - Average Candle -
+        #region - Trade history (Async) -
+        private async void TradeHistoryAsync()
+        {
+            try
+            {
+                await Task.Run(()=> {
+                    decimal sum_profit_orders = 0m;
+                    int count_orders = 0;
+                    variables.SUM_PROFIT_ORDERS = 0m;
+                    variables.COUNT_ORDERS = 0;
+                    foreach (var it in history_list_orders)
+                    {
+                        sum_profit_orders += it.RealizedProfit;
+                        sum_profit_orders -= it.Fee;
+                        count_orders++;
+                    }
+                    variables.SUM_PROFIT_ORDERS = sum_profit_orders;
+                    variables.COUNT_ORDERS = count_orders;
+                });
+            }
+            catch (Exception c)
+            {
+                Error($"TradeHistory {c.Message}");
+            }
+        }
+        #endregion
+
+        #region - Average Candle (Async) -
         private void Average_Click(object sender, RoutedEventArgs e)
         {
-            AverageCandle();
+            AverageCandleAsync();
         }
-
-        private void AverageCandle()
+        private async void AverageCandleAsync()
         {
-            double sum_low_high_price = 0;
-            foreach (var it in list_ohlc)
+            try
             {
-                sum_low_high_price += (it.High - it.Low);
+                await Task.Run(()=> {
+                    double sum_low_high_price = 0;
+                    foreach (var it in list_ohlc)
+                    {
+                        sum_low_high_price += (it.High - it.Low);
+                    }
+                    variables.AVERAGE_CANDLE = Math.Round((sum_low_high_price / (list_ohlc.Count - 1)) / (Decimal.ToDouble(variables.PRICE_SYMBOL) / 1000));
+                });
             }
-            variables.AVERAGE_CANDLE = Math.Round((sum_low_high_price / (list_ohlc.Count - 1)) / (Decimal.ToDouble(variables.PRICE_SYMBOL) / 1000));
+            catch (Exception c)
+            {
+                Error($"AverageCandleAsync {c.Message}");
+            }
         }
         #endregion
 
-        #region - Balance -
-        public void BalanceFuture()
+        #region - Balance (Async) -
+        public async void BalanceFutureAsync()
         {
-            var result = socket.futures.Account.GetAccountInfoAsync().Result;
-            if (!result.Success)
+            try
             {
-                ErrorText.Add($"Failed BalanceFuture: {result.Error.Message}");
-                BalanceFuture();
+                await Task.Run(() => {
+                    var result = socket.futures.Account.GetAccountInfoAsync().Result;
+                    if (!result.Success)
+                    {
+                        Error($"Failed BalanceFutureAsync: {result.Error.Message}");
+                    }
+                    else
+                    {
+                        variables.ACCOUNT_BALANCE = result.Data.TotalMarginBalance;
+                    }
+                });
             }
-            else
+            catch (Exception c)
             {
-                variables.ACCOUNT_BALANCE = result.Data.TotalMarginBalance;
+                Error($"BalanceFutureAsync {c.Message}");
             }
         }
         #endregion
@@ -161,41 +265,48 @@ namespace BinanceAlgorithmLight
         }
         private void PriceOrder(BinanceFuturesStreamOrderUpdateData order)
         {
-            if(order.PositionSide == PositionSide.Long && order.Side == OrderSide.Buy || order.PositionSide == PositionSide.Short && order.Side == OrderSide.Sell)
+            try
             {
-                if (order.OrderId == open_order_id)
+                if (order.PositionSide == PositionSide.Long && order.Side == OrderSide.Buy || order.PositionSide == PositionSide.Short && order.Side == OrderSide.Sell)
                 {
-                    price_open_order = order.AveragePrice;
-                    NewLines(Double.Parse(price_open_order.ToString()));
+                    if (order.OrderId == open_order_id)
+                    {
+                        price_open_order = order.AveragePrice;
+                        NewLines(Double.Parse(price_open_order.ToString()));
+                    }
+                    else if (order.OrderId == order_id_1)
+                    {
+                        price_order_1 = order.AveragePrice;
+                        decimal average = Math.Round(((open_quantity * price_open_order) + (quantity_1 * price_order_1)) / (quantity_1 + open_quantity), 6);
+                        NewLineSL(Decimal.ToDouble(average));
+                        permission_to_close_orders = true;
+                    }
+                    else if (order.OrderId == order_id_2)
+                    {
+                        price_order_2 = order.AveragePrice;
+                        decimal average = Math.Round(((open_quantity * price_open_order) + (quantity_1 * price_order_1) + (quantity_2 * price_order_2)) / (quantity_1 + quantity_2 + open_quantity), 6);
+                        NewLineSL(Decimal.ToDouble(average));
+                        permission_to_close_orders = true;
+                    }
+                    else if (order.OrderId == order_id_3)
+                    {
+                        price_order_3 = order.AveragePrice;
+                        decimal average = Math.Round(((open_quantity * price_open_order) + (quantity_1 * price_order_1) + (quantity_2 * price_order_2) + (quantity_3 * price_order_3)) / (quantity_1 + quantity_2 + quantity_3 + open_quantity), 6);
+                        NewLineSL(Decimal.ToDouble(average));
+                        permission_to_close_orders = true;
+                    }
                 }
-                else if (order.OrderId == order_id_1)
+                else if (order.OrderId == close_order_id)
                 {
-                    price_order_1 = order.AveragePrice;
-                    decimal average = Math.Round(((open_quantity * price_open_order) + (quantity_1 * price_order_1)) / (quantity_1 + open_quantity), 6);
-                    NewLineSL(Decimal.ToDouble(average));
-                    permission_to_close_orders = true;
-                }
-                else if (order.OrderId == order_id_2)
-                {
-                    price_order_2 = order.AveragePrice;
-                    decimal average = Math.Round(((open_quantity * price_open_order) + (quantity_1 * price_order_1) + (quantity_2 * price_order_2)) / (quantity_1 + quantity_2 + open_quantity), 6);
-                    NewLineSL(Decimal.ToDouble(average));
-                    permission_to_close_orders = true;
-                }
-                else if (order.OrderId == order_id_3)
-                {
-                    price_order_3 = order.AveragePrice;
-                    decimal average = Math.Round(((open_quantity * price_open_order) + (quantity_1 * price_order_1) + (quantity_2 * price_order_2) + (quantity_3 * price_order_3)) / (quantity_1 + quantity_2 + quantity_3 + open_quantity), 6);
-                    NewLineSL(Decimal.ToDouble(average));
-                    permission_to_close_orders = true;
+                    close_order_id = 0;
+                    price_open_order = Decimal.Parse(line_sl_1_y[0].ToString());
+                    NewLines(line_sl_1_y[0]);
+                    NewLineSLClear();
                 }
             }
-            else if (order.OrderId == close_order_id)
+            catch (Exception c)
             {
-                close_order_id = 0;
-                price_open_order = Decimal.Parse(line_sl_1_y[0].ToString());
-                NewLines(line_sl_1_y[0]);
-                NewLineSLClear();
+                Error($"PriceOrder {c.Message}");
             }
         }
         public void SubscribeToOrderThread()
@@ -203,36 +314,34 @@ namespace BinanceAlgorithmLight
             try
             {
                 string symbol = LIST_SYMBOLS.Text;
-                new Thread(() => { SubscribeToOrder(symbol); }).Start();
+                new Thread(() => { SubscribeToOrderAsync(symbol); }).Start();
             }
             catch (Exception c)
             {
-                ErrorText.Add($"SubscribeToOrderThread {c.Message}");
+                Error($"SubscribeToOrderThread {c.Message}");
             }
         }
-        public async void SubscribeToOrder(string symbol)
+        public async void SubscribeToOrderAsync(string symbol)
         {
             try
             {
                 bool unsubscribe = true;
-                Dispatcher.Invoke(new Action(() =>
-                {
-                    ErrorText.Add($"Subscribe to orders {symbol}");
-                }));
+                //Error($"Subscribe to orders {symbol}");
                 var listenKey = await socket.futures.Account.StartUserStreamAsync();
                 if (!listenKey.Success) {
+                    Error($"Failed to start user stream: listenKey");
                     Dispatcher.Invoke(new Action(() =>
                     {
-                        ErrorText.Add($"Failed to start user stream: {listenKey.Error.Message}"); 
-                        SubscribeToOrderThread();
+                        variables.CHECK_SUBSCRIBE_TO_ORDER = false;
                     }));
-                    return;
                 }
-                var result = await socket.socketClient.UsdFuturesStreams.SubscribeToUserDataUpdatesAsync(listenKey: listenKey.Data,
+                else
+                {
+                    var result = await socket.socketClient.UsdFuturesStreams.SubscribeToUserDataUpdatesAsync(listenKey: listenKey.Data,
                     onLeverageUpdate => { },
                     onMarginUpdate => { },
                     onAccountUpdate => {
-                        Dispatcher.Invoke(new Action(() =>
+                        Dispatcher.BeginInvoke(new Action(() =>
                         {
                             variables.ACCOUNT_BALANCE = onAccountUpdate.Data.UpdateData.Balances.ToList()[0].CrossWalletBalance;
                         }));
@@ -241,7 +350,7 @@ namespace BinanceAlgorithmLight
                     {
                         if (onOrderUpdate.Data.UpdateData.Symbol == symbol && onOrderUpdate.Data.UpdateData.Status == OrderStatus.Filled || onOrderUpdate.Data.UpdateData.Symbol == symbol && onOrderUpdate.Data.UpdateData.Status == OrderStatus.PartiallyFilled)
                         {
-                            Dispatcher.Invoke(new Action(() =>
+                            Dispatcher.BeginInvoke(new Action(() =>
                             {
                                 if (onOrderUpdate.Data.UpdateData.OrderId == open_order_id && !CheckOrderIdToListOrders() || onOrderUpdate.Data.UpdateData.OrderId == opposite_open_order_id && !CheckOrderIdToListOrders()) ClearListOrders();
                                 list_orders.Add(onOrderUpdate.Data.UpdateData);
@@ -249,36 +358,37 @@ namespace BinanceAlgorithmLight
                                 HISTORY_LIST.Items.Refresh();
                                 PriceOrder(onOrderUpdate.Data.UpdateData);
                                 LoadingChartOrders();
-                                TradeHistory();
+                                TradeHistoryAsync();
                             }));
                         }
                     },
                     onListenKeyExpired => {
                         if (unsubscribe)
                         {
-                            Dispatcher.Invoke(new Action(() =>
+                            Error($"Listen Key Expired {symbol}");
+                            Dispatcher.BeginInvoke(new Action(() =>
                             {
-                                ErrorText.Add($"Listen Key Expired {symbol}");
-                                SubscribeToOrderThread();
+                                variables.CHECK_SUBSCRIBE_TO_ORDER = false;
                             }));
                         }
                         unsubscribe = false;
                     }
                     );
-                if (!result.Success)
-                {
-                    Dispatcher.Invoke(new Action(() =>
+                    if (!result.Success)
                     {
-                        ErrorText.Add($"Failed UserDataUpdates: {result.Error.Message}");
-                        SubscribeToOrderThread();
-                    }));
+                        Error($"Failed UserDataUpdates: {result.Error.Message}");
+                        Dispatcher.Invoke(new Action(() =>
+                        {
+                            variables.CHECK_SUBSCRIBE_TO_ORDER = false;
+                        }));
+                    }
                 }
             }
             catch (Exception c)
             {
+                Error($"SubscribeToOrder {c.Message}");
                 Dispatcher.Invoke(new Action(() =>
                 {
-                    ErrorText.Add($"SubscribeToOrder {c.Message}");
                     SubscribeToOrderThread();
                 }));
             }
@@ -302,9 +412,9 @@ namespace BinanceAlgorithmLight
         }
         private void STOP_ASYNC_Click(object sender, RoutedEventArgs e)
         {
-            StopAsync();
+            UnsubscribeAllAsync();
         }
-        private void StopAsync()
+        private void UnsubscribeAllAsync()
         {
             try
             {
@@ -312,18 +422,19 @@ namespace BinanceAlgorithmLight
             }
             catch (Exception c)
             {
-                ErrorText.Add($"STOP_ASYNC_Click {c.Message}");
+                Error($"STOP_ASYNC_Click {c.Message}");
             }
         }
-        public void SubscribeToKline()
+        public async void SubscribeToKline()
         {
             try
             {
-                socket.socketClient.UsdFuturesStreams.SubscribeToKlineUpdatesAsync(LIST_SYMBOLS.Text, interval_time, Message =>
+                variables.CONNECT_BINANCE = true;
+                var result = await socket.socketClient.UsdFuturesStreams.SubscribeToKlineUpdatesAsync(LIST_SYMBOLS.Text, interval_time, Message =>
                 {
-                    Dispatcher.Invoke(new Action(() =>
+                    Dispatcher.BeginInvoke(new Action(() =>
                     {
-                        if (!variables.CONNECT_BINANCE) variables.CONNECT_BINANCE = true;
+                        if(!variables.CONNECT_BINANCE) variables.CONNECT_BINANCE = true;
                         variables.PRICE_SYMBOL = Message.Data.Data.ClosePrice;
                         UpdateListOHLC(new OHLC(Decimal.ToDouble(Message.Data.Data.OpenPrice), Decimal.ToDouble(Message.Data.Data.HighPrice), Decimal.ToDouble(Message.Data.Data.LowPrice), Decimal.ToDouble(Message.Data.Data.ClosePrice), Message.Data.Data.OpenTime, timeSpan));
                         LoadingChart();
@@ -342,10 +453,22 @@ namespace BinanceAlgorithmLight
                         }
                     }));
                 });
+                if (!result.Success)
+                {
+                    Error($"Failed SubscribeToKline: {result.Error.Message}");
+                    Dispatcher.Invoke(new Action(() =>
+                    {
+                        variables.CONNECT_BINANCE = false;
+                    }));
+                }
             }
             catch (Exception c)
             {
-                ErrorText.Add($"STOP_ASYNC_Click {c.Message}");
+                Error($"STOP_ASYNC_Click {c.Message}");
+                Dispatcher.Invoke(new Action(() =>
+                {
+                    variables.CONNECT_BINANCE = false;
+                }));
             }
         }
         private void UpdateListOHLC(OHLC ohlc)
@@ -362,7 +485,7 @@ namespace BinanceAlgorithmLight
             {
                 string symbol = LIST_SYMBOLS.Text;
                 var result = socket.futures.ExchangeData.GetExchangeInfoAsync();
-                if (!result.Result.Success) ErrorText.Add("Error ExchangeInfo");
+                if (!result.Result.Success) Error("Error ExchangeInfo");
                 else
                 {
                     List<BinanceFuturesUsdtSymbol> list = result.Result.Data.Symbols.ToList();
@@ -380,7 +503,7 @@ namespace BinanceAlgorithmLight
             }
             catch (Exception c)
             {
-                ErrorText.Add($"ExchangeInfo {c.Message}");
+                Error($"ExchangeInfo {c.Message}");
             }
         }
         #endregion
@@ -506,7 +629,7 @@ namespace BinanceAlgorithmLight
             }
             catch (Exception c)
             {
-                ErrorText.Add($"OpenOrders {c.Message}");
+                Error($"OpenOrders {c.Message}");
             }
         }
 
@@ -596,7 +719,7 @@ namespace BinanceAlgorithmLight
             }
             catch (Exception c)
             {
-                ErrorText.Add($"CloseOrders {c.Message}");
+                Error($"CloseOrders {c.Message}");
             }
         }
         #endregion
@@ -828,7 +951,7 @@ namespace BinanceAlgorithmLight
             }
             catch (Exception c)
             {
-                ErrorText.Add($"StartAlgorithm {c.Message}");
+                Error($"StartAlgorithm {c.Message}");
             }
         }
 
@@ -916,7 +1039,7 @@ namespace BinanceAlgorithmLight
             }
             catch (Exception c)
             {
-                ErrorText.Add($"NewLineTP {c.Message}");
+                Error($"NewLineTP {c.Message}");
             }
         }
         #endregion
@@ -939,7 +1062,7 @@ namespace BinanceAlgorithmLight
                 }
                 catch (Exception c)
                 {
-                    ErrorText.Add($"NewLineSL {c.Message}");
+                    Error($"NewLineSL {c.Message}");
                 }
             }
         }
@@ -991,7 +1114,7 @@ namespace BinanceAlgorithmLight
             }
             catch (Exception c)
             {
-                ErrorText.Add($"NewLineOpen {c.Message}");
+                Error($"NewLineOpen {c.Message}");
             }
         }
         private void LoadLineOpen()
@@ -1028,7 +1151,7 @@ namespace BinanceAlgorithmLight
             }
             catch (Exception c)
             {
-                ErrorText.Add($"NewLinesOpenOrders {c.Message}");
+                Error($"NewLinesOpenOrders {c.Message}");
             }
         }
         #endregion
@@ -1046,29 +1169,29 @@ namespace BinanceAlgorithmLight
             {
                 if (socket != null && COUNT_CANDLES > 0 && COUNT_CANDLES < 500)
                 {
-                    StopAsync();
+                    UnsubscribeAllAsync();
                     LoadingCandlesToDB();
                     if (variables.ONLINE_CHART)
                     {
-                        BalanceFuture();
+                        BalanceFutureAsync();
                         SubscribeToOrderThread();
                         SubscribeToKline();
                         if (!timer.IsEnabled) timer.Start();
                     }
-                    else { if (timer.IsEnabled) timer.Stop(); StopAsync(); variables.CONNECT_BINANCE = false; }
+                    else { if (timer.IsEnabled) timer.Stop(); UnsubscribeAllAsync(); variables.CONNECT_BINANCE = false; }
                     NewLines(0);
                     LoadingChart();
                     ReloadSettings();
                     ClearListOrders();
                     LoadingChartOrders();
-                    AverageCandle();
+                    AverageCandleAsync();
                     plt.Plot.AxisAuto();
                     plt.Render();
                 }
             }
             catch (Exception c)
             {
-                ErrorText.Add($"ReloadChart {c.Message}");
+                Error($"ReloadChart {c.Message}");
             }
         }
         
@@ -1092,7 +1215,7 @@ namespace BinanceAlgorithmLight
             }
             catch (Exception c)
             {
-                ErrorText.Add($"LoadingChart {c.Message}");
+                Error($"LoadingChart {c.Message}");
             }
         }
         #endregion
@@ -1110,7 +1233,7 @@ namespace BinanceAlgorithmLight
             }
             catch (Exception c)
             {
-                ErrorText.Add($"LoadingCandlesToDB {c.Message}");
+                Error($"LoadingCandlesToDB {c.Message}");
             }
         }
 
@@ -1122,7 +1245,7 @@ namespace BinanceAlgorithmLight
             try
             {
                 var result = socket.futures.ExchangeData.GetKlinesAsync(symbol: Symbol, interval: interval_time, startTime: start_time, endTime: end_time, limit: klines_count).Result;
-                if (!result.Success) ErrorText.Add("Error GetKlinesAsync");
+                if (!result.Success) Error("Error GetKlinesAsync");
                 else
                 {
                     if (list_ohlc.Count > 0) list_ohlc.Clear();
@@ -1138,7 +1261,7 @@ namespace BinanceAlgorithmLight
             }
             catch (Exception e)
             {
-                ErrorText.Add($"Klines {e.Message}");
+                Error($"Klines {e.Message}");
             }
         }
 
@@ -1153,7 +1276,7 @@ namespace BinanceAlgorithmLight
             }
             catch (Exception c)
             {
-                ErrorText.Add($"SoundOpenOrder {c.Message}");
+                Error($"SoundOpenOrder {c.Message}");
             }
         }
         private void SoundCloseOrder()
@@ -1164,7 +1287,7 @@ namespace BinanceAlgorithmLight
             }
             catch (Exception c)
             {
-                ErrorText.Add($"SoundCloseOrder {c.Message}");
+                Error($"SoundCloseOrder {c.Message}");
             }
         }
         #endregion
@@ -1211,12 +1334,12 @@ namespace BinanceAlgorithmLight
             try
             {
                 var result = socket.futures.ExchangeData.GetPricesAsync().Result;
-                if (!result.Success) ErrorText.Add("Error GetKlinesAsync");
+                if (!result.Success) Error("Error GetKlinesAsync");
                 return result.Data.ToList();
             }
             catch (Exception e)
             {
-                ErrorText.Add($"ListSymbols {e.Message}");
+                Error($"ListSymbols {e.Message}");
                 return ListSymbols();
             }
         }
@@ -1246,12 +1369,12 @@ namespace BinanceAlgorithmLight
                             SECRET_KEY = "";
                         }
                     }
-                    else ErrorText.Add("Сlient name not found!");
+                    else Error("Сlient name not found!");
                 }
             }
             catch (Exception c)
             {
-                ErrorText.Add($"Button_Save {c.Message}");
+                Error($"Button_Save {c.Message}");
             }
         }
         private void Clients()
@@ -1270,7 +1393,7 @@ namespace BinanceAlgorithmLight
             }
             catch (Exception e)
             {
-                ErrorText.Add($"Clients {e.Message}");
+                Error($"Clients {e.Message}");
             }
         }
         private void Button_Login(object sender, RoutedEventArgs e)
@@ -1286,8 +1409,9 @@ namespace BinanceAlgorithmLight
                         CLIENT_NAME = "";
                         API_KEY = "";
                         SECRET_KEY = "";
+                        Ping();
                     }
-                    else ErrorText.Add("Сlient name not found!");
+                    else Error("Сlient name not found!");
                 }
                 else if (BOX_NAME.Text != "")
                 {
@@ -1298,13 +1422,14 @@ namespace BinanceAlgorithmLight
                     {
                         socket = new Socket(client.ApiKey, client.SecretKey);
                         Login_Click();
+                        Ping();
                     }
-                    else ErrorText.Add("Сlient name not found!");
+                    else Error("Сlient name not found!");
                 }
             }
             catch (Exception c)
             {
-                ErrorText.Add($"Button_Login {c.Message}");
+                Error($"Button_Login {c.Message}");
             }
         }
         private void Login_Click()
@@ -1317,9 +1442,10 @@ namespace BinanceAlgorithmLight
         {
             EXIT_GRID.Visibility = Visibility.Hidden;
             LOGIN_GRID.Visibility = Visibility.Visible;
-            StopAsync();
+            UnsubscribeAllAsync();
             socket = null;
             list_sumbols_name.Clear();
+            variables.START_PING = false;
         }
         #endregion
 
@@ -1337,7 +1463,7 @@ namespace BinanceAlgorithmLight
             }
             catch (Exception e)
             {
-                ErrorText.Add($"ErrorWatcher {e.Message}");
+                Error($"ErrorWatcher {e.Message}");
             }
         }
         private void ErrorWatcherChange()
@@ -1352,6 +1478,10 @@ namespace BinanceAlgorithmLight
         private void Button_ClearErrors(object sender, RoutedEventArgs e)
         {
             File.WriteAllText(ErrorText.FullPatch(), "");
+        }
+        private async void Error(string error)
+        {
+            await Task.Run(() => { Dispatcher.BeginInvoke(new Action(() => { ErrorText.Add(error); })); }); 
         }
         // ------------------------------------------------------- End Error Text Block ----------------------------------------
         #endregion

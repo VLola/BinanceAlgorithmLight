@@ -295,7 +295,7 @@ namespace BinanceAlgorithmLight.Model
                 OnPropertyChanged("CONNECT_BINANCE");
             }
         }
-        private int _CONNECT_BINANCE_SECONDS = 10;
+        private int _CONNECT_BINANCE_SECONDS = 20;
         public int CONNECT_BINANCE_SECONDS
         {
             get { return _CONNECT_BINANCE_SECONDS; }
@@ -317,6 +317,50 @@ namespace BinanceAlgorithmLight.Model
             {
                 _CONNECT_BINANCE_TOOL_TIP = value;
                 OnPropertyChanged("CONNECT_BINANCE_TOOL_TIP");
+            }
+        }
+        private long _PING = 0;
+        public long PING
+        {
+            get { return _PING; }
+            set
+            {
+                if (value > 0)
+                {
+                    _PING = value;
+                    OnPropertyChanged("PING");
+                }
+            }
+        }
+        private bool _START_PING = false;
+        public bool START_PING
+        {
+            get { return _START_PING; }
+            set
+            {
+                _START_PING = value;
+                OnPropertyChanged("START_PING");
+            }
+        }
+        private bool _CHECK_SUBSCRIBE_TO_ORDER = true;
+        public bool CHECK_SUBSCRIBE_TO_ORDER
+        {
+            get { return _CHECK_SUBSCRIBE_TO_ORDER; }
+            set
+            {
+                _CHECK_SUBSCRIBE_TO_ORDER = value;
+                OnPropertyChanged("CHECK_SUBSCRIBE_TO_ORDER");
+            }
+        }
+
+        private int _ID_SYBSCRIBE_TO_KLINE;
+        public int ID_SYBSCRIBE_TO_KLINE
+        {
+            get { return _ID_SYBSCRIBE_TO_KLINE; }
+            set
+            {
+                _ID_SYBSCRIBE_TO_KLINE = value;
+                OnPropertyChanged("ID_SYBSCRIBE_TO_KLINE");
             }
         }
     }

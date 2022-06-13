@@ -52,6 +52,16 @@
             <Setter Property="VerticalAlignment" Value="Center" />
             <Setter Property="HorizontalAlignment" Value="Center" />
         </Style>
+        <Style x:Key="styleTextBlockPing" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="White" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="HorizontalAlignment" Value="Center" />
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding Path=variables.PING}" Value="100000">
+                    <Setter Property="Foreground" Value="Red" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
         <Style x:Key="styleTextBlockPnl" TargetType="TextBlock">
             <Setter Property="Foreground" Value="Green" />
             <Setter Property="VerticalAlignment" Value="Center" />
@@ -72,6 +82,17 @@
             <Setter Property="Foreground" Value="White" />
             <Setter Property="VerticalAlignment" Value="Center" />
             <Setter Property="HorizontalAlignment" Value="Center" />
+        </Style>
+        <Style x:Key="styleLabelPing" TargetType="Label">
+            <Setter Property="Margin" Value="5 0" />
+            <Setter Property="Foreground" Value="White" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="HorizontalAlignment" Value="Center" />
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding Path=variables.PING}" Value="100000">
+                    <Setter Property="Foreground" Value="Red" />
+                </DataTrigger>
+            </Style.Triggers>
         </Style>
         <Style x:Key="styleTextBoxErrors" TargetType="TextBox">
             <Setter Property="Foreground" Value="Gray" />
@@ -234,7 +255,7 @@
                                         <ColumnDefinition/>
                                     </Grid.ColumnDefinitions>
                                     <CheckBox Grid.Column="0" Content="Online" IsChecked="{Binding Path=variables.ONLINE_CHART}" Style="{DynamicResource styleCheckBoxOnline}"/>
-                                    <TextBox Grid.Column="1" Text="{Binding Path=variables.CONNECT_BINANCE_SECONDS, UpdateSourceTrigger=PropertyChanged}" ToolTip="{Binding Path=variables.CONNECT_BINANCE_TOOL_TIP}" Style="{DynamicResource styleTextBox}"/>
+                                    <TextBox Grid.Column="1" Text="{Binding Path=variables.CONNECT_BINANCE_SECONDS, UpdateSourceTrigger=PropertyChanged}" TextChanged="Timer_TextChanged" ToolTip="{Binding Path=variables.CONNECT_BINANCE_TOOL_TIP}" Style="{DynamicResource styleTextBox}"/>
                                 </Grid>
                                 <Grid Grid.Column="1" Grid.Row="1" Style="{DynamicResource styleGridBlack}">
                                     <Grid.ColumnDefinitions>
@@ -331,8 +352,11 @@
                     <Grid Grid.Column="0" Grid.Row="1" Grid.ColumnSpan="2" Style="{DynamicResource styleGrid}">
                         <WpfPlot Name="plt"/>
                     </Grid>
-
                     <Grid Grid.Row="3" Grid.Column="0" Grid.ColumnSpan="2" Style="{DynamicResource styleGridBlack}">
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Left">
+                            <Label Content="Ping:" Style="{DynamicResource styleLabelPing}"/>
+                            <TextBlock Text="{Binding Path=variables.PING}" Style="{DynamicResource styleTextBlockPing}"/>
+                        </StackPanel>
                         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="20 0">
                             <Label Content="Orders:" Style="{DynamicResource styleLabel}"/>
                             <TextBlock Text="{Binding Path=variables.COUNT_ORDERS}" Style="{DynamicResource styleTextBlock}"/>
@@ -340,7 +364,6 @@
                             <TextBlock Text="{Binding Path=variables.SUM_PROFIT_ORDERS}" Foreground="{Binding Path=variables.COLOR_SUM_PROFIT_ORDERS}" Style="{DynamicResource styleTextBlock}"/>
                         </StackPanel>
                     </Grid>
-                    
                 </Grid>
             </TabItem>
             <TabItem Header="Trade history">
