@@ -1,27 +1,37 @@
-﻿using Binance.Net.Objects.Models.Futures.Socket;
-using Binance.Net.Enums;
+﻿using Binance.Net.Enums;
+using Binance.Net.Objects.Models.Futures;
+using System;
 
 namespace BinanceAlgorithmLight.Objects
 {
-    public class OrderHistory : BinanceFuturesStreamOrderUpdateData
+    public class OrderHistory: BinanceFuturesOrder
     {
         public decimal Total { get; set; }
+        public decimal RealizedProfit { get; set; }
+        public decimal Commission { get; set; }
         public string ColorTotal { get; set; }
         public string ColorRealizedProfit { get; set; }
         public string ColorPositionSide { get; set; }
         public string Trade { get; set; }
         public string ColorTrade { get; set; }
-        public OrderHistory(BinanceFuturesStreamOrderUpdateData order)
+        public OrderHistory(BinanceFuturesOrder order, decimal SLPrice)
         {
+            Id = order.Id;
             UpdateTime = order.UpdateTime;
             Symbol = order.Symbol;
-            AveragePrice = order.AveragePrice;
-            QuantityOfLastFilledTrade = order.QuantityOfLastFilledTrade;
-            RealizedProfit = order.RealizedProfit;
-            Fee = order.Fee;
-            Side = order.Side;
+            AvgPrice = order.AvgPrice;
+            Quantity = order.Quantity;
             PositionSide = order.PositionSide;
-            Total = RealizedProfit - Fee;
+            Side = order.Side;
+            if (SLPrice == 0m) RealizedProfit = 0m;
+            else
+            {
+                decimal rp = ((AvgPrice * Quantity) - (SLPrice * Quantity));
+                if (PositionSide == PositionSide.Long) RealizedProfit = rp;
+                else if (PositionSide == PositionSide.Short) RealizedProfit = -rp;
+            }
+            Commission = ((AvgPrice * Quantity) * 0.04m);
+             Total = RealizedProfit - Commission;
             // Colot Total
             if (Total > 0m) ColorTotal = "Green";
             else if (Total < 0m) ColorTotal = "Red";

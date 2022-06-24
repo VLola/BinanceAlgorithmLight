@@ -223,15 +223,6 @@
                                     <ComboBox x:Name="INTERVAL_TIME" ItemsSource="{Binding Path=Intervals}" DropDownClosed="INTERVAL_TIME_DropDownClosed" Style="{DynamicResource styleComboBox}"/>
                                 </Grid>
 
-                                <Grid Grid.Column="2" Grid.Row="0" Style="{DynamicResource styleGridBlack}">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition/>
-                                        <ColumnDefinition/>
-                                    </Grid.ColumnDefinitions>
-                                    <RadioButton Grid.Column="0" Content="Long" IsChecked="{Binding Path=variables.LONG}" Style="{DynamicResource styleRadioButton}"/>
-                                    <RadioButton Grid.Column="1" Content="Short" IsChecked="{Binding Path=variables.SHORT}" Style="{DynamicResource styleRadioButton}"/>
-                                </Grid>
-
                                 <Grid Grid.Column="3" Grid.Row="0" Style="{DynamicResource styleGridBlack}">
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition/>
@@ -368,13 +359,14 @@
             </TabItem>
             <TabItem Header="Trade history">
                 <Grid>
-                    <ListView Grid.Column="1" Grid.Row="0" Foreground="White" Background="Black" x:Name="HISTORY_LIST" ItemsSource="{Binding Path=history_list_orders}">
+                    <ListView Grid.Column="1" Grid.Row="0" Foreground="White" Background="Black" ItemsSource="{Binding Path=history_list_orders}">
                         <ListView.View >
                             <GridView>
+                                <GridViewColumn DisplayMemberBinding="{Binding Id}" Width="140" Header="id"/>
                                 <GridViewColumn DisplayMemberBinding="{Binding UpdateTime}" Width="140" Header="date"/>
                                 <GridViewColumn DisplayMemberBinding="{Binding Symbol}" Width="100" Header="symbol"/>
-                                <GridViewColumn DisplayMemberBinding="{Binding AveragePrice}" Width="100" Header="price"/>
-                                <GridViewColumn DisplayMemberBinding="{Binding QuantityOfLastFilledTrade}" Width="100" Header="qyantity"/>
+                                <GridViewColumn DisplayMemberBinding="{Binding AvgPrice}" Width="100" Header="price"/>
+                                <GridViewColumn DisplayMemberBinding="{Binding Quantity}" Width="100" Header="qyantity"/>
                                 <GridViewColumn Width="100" Header="position">
                                     <GridViewColumn.CellTemplate>
                                         <DataTemplate>
@@ -396,7 +388,7 @@
                                         </DataTemplate>
                                     </GridViewColumn.CellTemplate>
                                 </GridViewColumn>
-                                <GridViewColumn DisplayMemberBinding="{Binding Fee}" Width="100" Header="commission"/>
+                                <GridViewColumn DisplayMemberBinding="{Binding Commission}" Width="100" Header="commission"/>
                                 <GridViewColumn Width="100" Header="total">
                                     <GridViewColumn.CellTemplate>
                                         <DataTemplate>

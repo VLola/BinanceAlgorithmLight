@@ -66,28 +66,6 @@ namespace BinanceAlgorithmLight.Model
                 OnPropertyChanged("SOUND");
             }
         }
-        private bool _LONG = false;
-        public bool LONG
-        {
-            get { return _LONG; }
-            set
-            {
-                _LONG = value;
-                if (value == true) if (_LINE_OPEN > 0) LINE_OPEN = -_LINE_OPEN;
-                OnPropertyChanged("LONG");
-            }
-        }
-        private bool _SHORT = true;
-        public bool SHORT
-        {
-            get { return _SHORT; }
-            set
-            {
-                _SHORT = value; 
-                if (value == true) if (_LINE_OPEN < 0) LINE_OPEN = -_LINE_OPEN;
-                OnPropertyChanged("SHORT");
-            }
-        }
         private decimal _MIN_QTY;
         public decimal MIN_QTY
         {
