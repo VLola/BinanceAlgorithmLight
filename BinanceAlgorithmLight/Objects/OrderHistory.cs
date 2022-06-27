@@ -30,7 +30,7 @@ namespace BinanceAlgorithmLight.Objects
                 if (PositionSide == PositionSide.Long) RealizedProfit = rp;
                 else if (PositionSide == PositionSide.Short) RealizedProfit = -rp;
             }
-            Commission = ((AvgPrice * Quantity) * 0.04m);
+            Commission = ((AvgPrice * Quantity) * 0.0004m);
              Total = RealizedProfit - Commission;
             // Colot Total
             if (Total > 0m) ColorTotal = "Green";
