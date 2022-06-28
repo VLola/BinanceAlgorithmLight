@@ -1152,35 +1152,35 @@ namespace BinanceAlgorithmLight
                     sum += it.RealizedProfit;
                     sum -= it.Commission;
                 }
-                if (short_order_id_0 != 0)
+                if (short_order_id_0 != 0 && short_price_order_0 > 0m)
                 {
                     sum += ((short_quantity_0 * short_price_order_0) - (short_quantity_0 * price));
                 }
-                if (short_order_id_1 != 0)
+                if (short_order_id_1 != 0 && short_price_order_1 > 0m)
                 {
                     sum += ((short_quantity_1 * short_price_order_1) - (short_quantity_1 * price));
                 }
-                if (short_order_id_2 != 0)
+                if (short_order_id_2 != 0 && short_price_order_2 > 0m)
                 {
                     sum += ((short_quantity_2 * short_price_order_2) - (short_quantity_2 * price));
                 }
-                if (short_order_id_3 != 0)
+                if (short_order_id_3 != 0 && short_price_order_3 > 0m)
                 {
                     sum += ((short_quantity_3 * short_price_order_3) - (short_quantity_3 * price));
                 }
-                if (long_order_id_0 != 0)
+                if (long_order_id_0 != 0 && long_price_order_0 > 0m)
                 {
                     sum += ((long_quantity_0 * price) - (long_quantity_0 * long_price_order_0));
                 }
-                if (long_order_id_1 != 0)
+                if (long_order_id_1 != 0 && long_price_order_1 > 0m)
                 {
                     sum += ((long_quantity_1 * price) - (long_quantity_1 * long_price_order_1));
                 }
-                if (long_order_id_2 != 0)
+                if (long_order_id_2 != 0 && long_price_order_2 > 0m)
                 {
                     sum += ((long_quantity_2 * price) - (long_quantity_2 * long_price_order_2));
                 }
-                if (long_order_id_3 != 0)
+                if (long_order_id_3 != 0 && long_price_order_3 > 0m)
                 {
                     sum += ((long_quantity_3 * price) - (long_quantity_3 * long_price_order_3));
                 }
