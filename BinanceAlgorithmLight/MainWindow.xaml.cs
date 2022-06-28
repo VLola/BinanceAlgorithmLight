@@ -881,7 +881,7 @@ namespace BinanceAlgorithmLight
                         SoundOpenOrder();
                         PriceOrder(socket, symbol, long_order_id_3, 0m);
                     }
-                    if (list_ohlc[list_ohlc.Count - 1].Close > line_sl_long_y[0])
+                    if (line_sl_long_y[0] > 0d && list_ohlc[list_ohlc.Count - 1].Close > line_sl_long_y[0])
                     {
                         decimal sl = Decimal.Parse(line_sl_long_y[0].ToString());
                         if (long_order_id_1 != 0 && long_order_id_2 != 0 && long_order_id_3 != 0)
@@ -1261,6 +1261,7 @@ namespace BinanceAlgorithmLight
         {
             plt.Plot.Remove(line_sl_short_scatter);
             plt.Refresh();
+            Array.Clear(line_sl_short_y, 0, 2);
         }
         double[] line_sl_long_y = new double[2];
         private void NewLineSLLong(double price_sl)
@@ -1287,6 +1288,7 @@ namespace BinanceAlgorithmLight
         {
             plt.Plot.Remove(line_sl_long_scatter);
             plt.Refresh();
+            Array.Clear(line_sl_long_y, 0, 2);
         }
         #endregion
 
