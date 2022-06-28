@@ -1149,24 +1149,40 @@ namespace BinanceAlgorithmLight
                 decimal sum = 0m;
                 foreach (var it in list_orders)
                 {
-                    if (it.Id == short_order_id_0 || it.Id == short_order_id_1 || it.Id == short_order_id_2 || it.Id == short_order_id_3 || it.Id == long_order_id_0 || it.Id == long_order_id_1 || it.Id == long_order_id_2 || it.Id == long_order_id_3)
-                    {
-                        if (it.PositionSide == PositionSide.Short && it.Side == OrderSide.Sell)
-                        {
-                            sum += ((it.Quantity * it.AvgPrice) - (it.Quantity * price));
-                            sum -= it.Commission;
-                        }
-                        else if (it.PositionSide == PositionSide.Long && it.Side == OrderSide.Buy)
-                        {
-                            sum += ((it.Quantity * price) - (it.Quantity * it.AvgPrice));
-                            sum -= it.Commission;
-                        }
-                    }
-                    else
-                    {
-                        sum += it.RealizedProfit;
-                        sum -= it.Commission;
-                    }
+                    sum += it.RealizedProfit;
+                    sum -= it.Commission;
+                }
+                if (short_order_id_0 != 0)
+                {
+                    sum += ((short_quantity_0 * short_price_order_0) - (short_quantity_0 * price));
+                }
+                if (short_order_id_1 != 0)
+                {
+                    sum += ((short_quantity_1 * short_price_order_1) - (short_quantity_1 * price));
+                }
+                if (short_order_id_2 != 0)
+                {
+                    sum += ((short_quantity_2 * short_price_order_2) - (short_quantity_2 * price));
+                }
+                if (short_order_id_3 != 0)
+                {
+                    sum += ((short_quantity_3 * short_price_order_3) - (short_quantity_3 * price));
+                }
+                if (long_order_id_0 != 0)
+                {
+                    sum += ((long_quantity_0 * price) - (long_quantity_0 * long_price_order_0));
+                }
+                if (long_order_id_1 != 0)
+                {
+                    sum += ((long_quantity_1 * price) - (long_quantity_1 * long_price_order_1));
+                }
+                if (long_order_id_2 != 0)
+                {
+                    sum += ((long_quantity_2 * price) - (long_quantity_2 * long_price_order_2));
+                }
+                if (long_order_id_3 != 0)
+                {
+                    sum += ((long_quantity_3 * price) - (long_quantity_3 * long_price_order_3));
                 }
                 variables.PNL = sum;
             } 
